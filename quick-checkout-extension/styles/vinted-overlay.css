@@ -1,0 +1,71 @@
+/* Injected into Vinted pages — checkout overlay */
+
+#qc-vinted-overlay {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  z-index: 999999;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  transition: opacity 0.25s, transform 0.25s;
+}
+
+#qc-vinted-overlay.qc-hidden {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(10px);
+}
+
+#qc-overlay-inner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: #0f1117;
+  border: 1px solid #2a2f45;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+  color: #e2e8f0;
+  font-size: 13px;
+  font-weight: 600;
+  min-width: 240px;
+  max-width: 340px;
+  position: relative;
+}
+
+#qc-overlay-icon {
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+#qc-overlay-msg {
+  flex: 1;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+#qc-overlay-metrics {
+  font-size: 10px;
+  color: #64748b;
+  font-weight: 400;
+}
+
+#qc-overlay-close {
+  background: none;
+  border: none;
+  color: #64748b;
+  cursor: pointer;
+  font-size: 12px;
+  padding: 2px 4px;
+  flex-shrink: 0;
+  line-height: 1;
+  position: absolute;
+  top: 6px;
+  right: 8px;
+}
+
+#qc-overlay-close:hover { color: #e2e8f0; }
+
+.qc-overlay--loading #qc-overlay-inner { border-color: #6c63ff; }
+.qc-overlay--success #qc-overlay-inner { border-color: #22c55e; }
+.qc-overlay--error   #qc-overlay-inner { border-color: #ef4444; }
+.qc-overlay--warning #qc-overlay-inner { border-color: #eab308; }

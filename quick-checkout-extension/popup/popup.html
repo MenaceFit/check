@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Quick Checkout</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <!-- Header -->
+  <div class="header">
+    <div class="header-logo">⚡</div>
+    <div class="header-title">
+      <span class="header-name">Quick Checkout</span>
+      <span class="header-sub">Autocop × Vinted</span>
+    </div>
+    <div class="header-toggle">
+      <label class="toggle-switch" title="Activer / Désactiver">
+        <input type="checkbox" id="toggle-enabled">
+        <span class="slider"></span>
+      </label>
+    </div>
+  </div>
+
+  <!-- Status Grid -->
+  <div class="status-grid">
+    <div class="status-row">
+      <span class="status-label">Vinted</span>
+      <span class="status-indicator" id="status-vinted">
+        <span class="dot"></span>
+        <span class="status-text">—</span>
+      </span>
+    </div>
+    <div class="status-row">
+      <span class="status-label">Session</span>
+      <span class="status-indicator" id="status-session">
+        <span class="dot"></span>
+        <span class="status-text">—</span>
+      </span>
+    </div>
+    <div class="status-row">
+      <span class="status-label">Autocop</span>
+      <span class="status-indicator" id="status-autocop">
+        <span class="dot"></span>
+        <span class="status-text">—</span>
+      </span>
+    </div>
+    <div class="status-row">
+      <span class="status-label">Checkout</span>
+      <span class="status-indicator" id="status-checkout">
+        <span class="dot"></span>
+        <span class="status-text">—</span>
+      </span>
+    </div>
+  </div>
+
+  <!-- Divider -->
+  <div class="divider"></div>
+
+  <!-- Quick Info -->
+  <div class="info-row">
+    <span class="info-icon">📍</span>
+    <span class="info-label">Point relais</span>
+    <span class="info-value" id="info-relay">Configuré sur Vinted</span>
+  </div>
+  <div class="info-row">
+    <span class="info-icon">💳</span>
+    <span class="info-label">Paiement</span>
+    <span class="info-value" id="info-payment">Carte enregistrée</span>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- Metrics -->
+  <div class="metrics-row">
+    <span class="metrics-label">Latence moy.</span>
+    <span class="metrics-value" id="metrics-latency">— ms</span>
+  </div>
+  <div class="metrics-row">
+    <span class="metrics-label">Checkouts</span>
+    <span class="metrics-value" id="metrics-count">0</span>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- Domain config -->
+  <div class="config-row">
+    <label class="config-label" for="select-domain">Domaine Vinted</label>
+    <select id="select-domain" class="config-select">
+      <option value="www.vinted.fr">vinted.fr</option>
+      <option value="www.vinted.be">vinted.be</option>
+      <option value="www.vinted.es">vinted.es</option>
+      <option value="www.vinted.de">vinted.de</option>
+      <option value="www.vinted.it">vinted.it</option>
+      <option value="www.vinted.co.uk">vinted.co.uk</option>
+      <option value="www.vinted.nl">vinted.nl</option>
+      <option value="www.vinted.pl">vinted.pl</option>
+      <option value="www.vinted.com">vinted.com</option>
+    </select>
+  </div>
+
+  <!-- V-Tools Token (optional, collapsible) -->
+  <details class="token-section" id="token-details">
+    <summary class="token-summary">🔑 Token V-Tools (optionnel)</summary>
+    <div class="token-body">
+      <div class="token-info">
+        Utilise la session Vinted du navigateur par défaut.<br>
+        Ce token n'est nécessaire que si la session Chrome ne fonctionne pas.
+      </div>
+      <div id="token-status" class="token-status" style="display:none"></div>
+      <div class="token-input-row">
+        <input type="password" id="token-input" placeholder="Coller le token ici…" class="token-input" autocomplete="off">
+        <button id="token-save" class="btn-small">Enregistrer</button>
+      </div>
+      <button id="token-clear" class="btn-small btn-danger" style="display:none">Effacer le token</button>
+    </div>
+  </details>
+
+  <div class="divider"></div>
+
+  <!-- Actions -->
+  <div class="actions-row">
+    <button id="btn-check-session" class="btn-secondary">↺ Vérifier session</button>
+    <button id="btn-debug" class="btn-secondary" id="btn-debug">🔍 Debug</button>
+  </div>
+
+  <!-- Debug Panel (hidden by default) -->
+  <div id="debug-panel" class="debug-panel" style="display:none">
+    <div class="debug-header">
+      <span>Journal de débogage</span>
+      <button id="btn-clear-logs" class="btn-tiny">Effacer</button>
+    </div>
+    <div id="debug-log" class="debug-log"></div>
+  </div>
+
+  <!-- Footer -->
+  <div class="footer">
+    Quick Checkout v1.0.0 — ⚡ Autocop × Vinted
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
