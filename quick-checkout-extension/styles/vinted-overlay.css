@@ -19,8 +19,8 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 10px 14px;
-  border-radius: 12px;
+  padding: 12px 16px;
+  border-radius: 14px;
   background: #0f1117;
   border: 1px solid #2a2f45;
   box-shadow: 0 8px 32px rgba(0,0,0,0.5);
@@ -54,13 +54,16 @@
   border: none;
   color: #64748b;
   cursor: pointer;
-  font-size: 12px;
-  padding: 2px 4px;
+  font-size: 14px;
+  /* 44px tap target for mobile */
+  min-width: 44px;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   flex-shrink: 0;
-  line-height: 1;
-  position: absolute;
-  top: 6px;
-  right: 8px;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
 }
 
 #qc-overlay-close:hover { color: #e2e8f0; }
@@ -69,3 +72,25 @@
 .qc-overlay--success #qc-overlay-inner { border-color: #22c55e; }
 .qc-overlay--error   #qc-overlay-inner { border-color: #ef4444; }
 .qc-overlay--warning #qc-overlay-inner { border-color: #eab308; }
+
+/* Mobile: bottom sheet style */
+@media (max-width: 480px), (pointer: coarse) {
+  #qc-vinted-overlay {
+    bottom: 0;
+    right: 0;
+    left: 0;
+    width: 100%;
+  }
+
+  #qc-overlay-inner {
+    border-radius: 14px 14px 0 0;
+    max-width: 100%;
+    min-width: unset;
+    padding: 16px 20px;
+    font-size: 14px;
+  }
+
+  #qc-overlay-msg {
+    font-size: 14px;
+  }
+}

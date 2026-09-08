@@ -22,11 +22,11 @@
 
 html {
   min-width: 300px;
-  max-width: 340px;
+  max-width: 420px;
 }
 
 body {
-  width: 320px;
+  width: 340px;
   font-family: var(--font);
   font-size: 13px;
   background: var(--bg);
@@ -34,6 +34,23 @@ body {
   line-height: 1.5;
   padding: 0;
   overflow-x: hidden;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* ---- Mobile: full-width layout (Kiwi Browser / Firefox Android) ---- */
+@media (max-width: 420px), (pointer: coarse) {
+  html, body { width: 100%; max-width: 100%; min-width: unset; }
+  body { font-size: 15px; }
+  .header { padding: 16px; }
+  .header-name { font-size: 16px; }
+  .status-grid, .info-row, .config-row, .actions-row { padding-left: 16px; padding-right: 16px; }
+  .metrics-row { padding: 7px 16px; }
+  .btn-secondary { min-height: 44px; font-size: 14px; }
+  .config-select { font-size: 14px; min-height: 36px; }
+  .token-input { font-size: 14px; min-height: 36px; }
+  .toggle-switch { width: 46px; height: 24px; }
+  .slider::before { width: 18px; height: 18px; }
+  .toggle-switch input:checked + .slider::before { transform: translateX(22px); }
 }
 
 /* ---- Header ---- */
@@ -77,6 +94,9 @@ body {
   width: 38px;
   height: 20px;
   cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  flex-shrink: 0;
 }
 
 .toggle-switch input { opacity: 0; width: 0; height: 0; }
@@ -290,6 +310,8 @@ details[open] .token-summary::before { content: '▾ '; }
   cursor: pointer;
   transition: background 0.15s, border-color 0.15s;
   font-family: var(--font);
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .btn-secondary:hover {
@@ -307,6 +329,9 @@ details[open] .token-summary::before { content: '▾ '; }
   font-size: 11px;
   cursor: pointer;
   font-family: var(--font);
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  min-height: 36px;
 }
 
 .btn-small:hover { background: var(--accent-glow); border-color: var(--accent); }

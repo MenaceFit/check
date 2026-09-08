@@ -164,8 +164,8 @@
     btn.title = `Quick Checkout — ${listing.title} ${listing.price}${listing.currency}`;
     btn.setAttribute('data-qc-id', listing.id);
 
-    // Prevent card click from firing when button is clicked
-    btn.addEventListener('click', (e) => {
+    // Unified handler — shared by click and touchend
+    const handleActivate = (e) => {
       e.preventDefault();
       e.stopPropagation();
       if (!enabled) {
@@ -173,7 +173,21 @@
         return;
       }
       triggerCheckout(btn, listing);
-    });
+    };
+
+    // Prevent card click from firing when button is clicked
+    btn.addEventListener('click', handleActivate);
+
+    // Touch support — fires immediately on touchstart to eliminate 300ms delay
+    // We use touchend so accidental swipes don't trigger a checkout
+    let touchStartY = 0;
+    btn.addEventListener('touchstart', (e) => {
+      touchStartY = e.touches[0]?.clientY ?? 0;
+    }, { passive: true });
+    btn.addEventListener('touchend', (e) => {
+      const dy = Math.abs((e.changedTouches[0]?.clientY ?? 0) - touchStartY);
+      if (dy < 10) handleActivate(e); // not a scroll
+    }, { passive: false });
 
     // Insert at top-right of card
     const container = document.createElement('div');

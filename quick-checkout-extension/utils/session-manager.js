@@ -1,6 +1,19 @@
-import { STORAGE_KEYS, SESSION_CHECK_INTERVAL } from '../config/constants.js';
+import { STORAGE_KEYS } from '../config/constants.js';
 import { checkVintedSession, detectVintedDomain } from './vinted-api.js';
 import { createLogger } from './logger.js';
+
+/**
+ * Masks a sensitive token for safe display/logging.
+ * Always ensures at least 4 asterisks appear in the middle.
+ */
+export function maskToken(t) {
+  if (!t) return null;
+  if (t.length <= 8) return '****';
+  // For short-ish tokens (9-12 chars): show 3 prefix + **** + 2 suffix
+  if (t.length <= 12) return t.slice(0, 3) + '****' + t.slice(-2);
+  // Normal: 6 prefix + up to 20 stars + 4 suffix
+  return t.slice(0, 6) + '*'.repeat(Math.min(t.length - 10, 20)) + t.slice(-4);
+}
 
 const log = createLogger('SessionMgr');
 
@@ -127,9 +140,7 @@ class SessionManager {
   // Mask for safe display/logging
   getMaskedToken() {
     if (!this._vToolsToken) return null;
-    const t = this._vToolsToken;
-    if (t.length <= 8) return '****';
-    return t.slice(0, 6) + '*'.repeat(Math.min(t.length - 10, 20)) + t.slice(-4);
+    return maskToken(this._vToolsToken);
   }
 }
 

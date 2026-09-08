@@ -102,6 +102,17 @@ async function handleMessage(msg, sender) {
     case 'QUICK_CHECKOUT':
       return await initiateQuickCheckout(msg.listing, msg.t0);
 
+    case 'CHECKOUT_METRICS': {
+      // Reported by vinted-checkout.js after the buy button is clicked
+      log.info('Checkout completed on Vinted', {
+        itemId: msg.itemId,
+        total_ms: msg.t_clicked - msg.t_start,
+        btn_find_ms: msg.t_btnFound - msg.t_pageLoaded,
+      });
+      await recordLatency({ t0: msg.t_start, t4: msg.t_clicked });
+      return { ok: true };
+    }
+
     case 'GET_LOGS': {
       const r = await chrome.storage.local.get('qc_logs');
       return { ok: true, logs: r?.qc_logs ?? [] };
@@ -262,7 +273,9 @@ async function openCheckoutTab(url, itemId, metrics) {
 }
 
 async function recordLatency(metrics) {
+  if (!metrics.t0 || !metrics.t4) return;
   const total = metrics.t4 - metrics.t0;
+  if (total <= 0 || total > 60000) return; // sanity guard
   const r = await chrome.storage.local.get(['qc_latency_history', 'qc_checkout_count']);
   const history = r.qc_latency_history ?? [];
   history.push({ ts: Date.now(), ms: total });

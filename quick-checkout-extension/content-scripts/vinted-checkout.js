@@ -104,7 +104,12 @@
     const pending = r?.qc_pending_checkout;
 
     if (!pending || !pending.itemId) return; // No pending checkout
-    if (pending.tabId && pending.tabId !== (await getCurrentTabId())) return; // Not our tab
+
+    // Ignore stale pending checkouts (older than 30s)
+    if (Date.now() - (pending.ts || 0) > 30000) {
+      await chrome.storage.local.remove('qc_pending_checkout');
+      return;
+    }
 
     // Clear the pending flag immediately to avoid re-triggering
     await chrome.storage.local.remove('qc_pending_checkout');
@@ -173,16 +178,6 @@
 
       setTimeout(() => { obs.disconnect(); resolve(findBuyButton()); }, timeoutMs);
       check();
-    });
-  }
-
-  async function getCurrentTabId() {
-    return new Promise(resolve => {
-      chrome.runtime.sendMessage({ type: 'PING' }, () => {
-        // We can't directly get our own tab ID from content script without messaging
-        // Use a workaround: check storage for the tab ID
-        resolve(null); // null = don't filter by tab ID
-      });
     });
   }
 

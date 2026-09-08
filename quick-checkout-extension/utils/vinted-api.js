@@ -1,4 +1,4 @@
-import { VINTED_DOMAINS, VINTED_API_PATH, VINTED_ITEM_ID_REGEX } from '../config/constants.js';
+import { VINTED_DOMAINS, VINTED_API_PATH } from '../config/constants.js';
 import { createLogger } from './logger.js';
 
 const log = createLogger('VintedAPI');
