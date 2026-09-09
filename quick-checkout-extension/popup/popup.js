@@ -15,8 +15,10 @@ const tokenInput      = $('token-input');
 const tokenSave       = $('token-save');
 const tokenClear      = $('token-clear');
 const tokenStatus     = $('token-status');
-const metricsLatency  = $('metrics-latency');
-const metricsCount    = $('metrics-count');
+const metricsLatency    = $('metrics-latency');
+const metricsCount      = $('metrics-count');
+const metricsLast       = $('metrics-last');
+const lastCheckoutRow   = $('last-checkout-row');
 
 // Status elements
 const statusVinted   = $('status-vinted');
@@ -76,6 +78,21 @@ function applyStatus(s) {
     metricsLatency.textContent = '— ms';
   }
   metricsCount.textContent = s.checkoutCount ?? 0;
+
+  // Last checkout
+  if (s.lastCheckout) {
+    const lc = s.lastCheckout;
+    const age = Math.round((Date.now() - lc.ts) / 1000);
+    const ageStr = age < 60 ? `${age}s` : `${Math.round(age/60)}min`;
+    const label = lc.title
+      ? `${lc.title.slice(0, 30)}… · ${lc.totalMs}ms · il y a ${ageStr}`
+      : `#${lc.itemId} · ${lc.totalMs}ms · il y a ${ageStr}`;
+    metricsLast.textContent = label;
+    metricsLast.title = lc.title ?? '';
+    lastCheckoutRow.style.display = 'flex';
+  } else {
+    lastCheckoutRow.style.display = 'none';
+  }
 
   // Token
   if (s.maskedToken) {

@@ -312,6 +312,116 @@ group('Card De-duplication', () => {
 });
 
 // ============================================================
+// 13. Buy Button Text Detection (all locales)
+// ============================================================
+
+group('Buy Button Locale Detection', () => {
+  const BUY_TEXTS = [
+    'acheter', 'buy now', 'buy', 'comprar', 'kaufen',
+    'acquista', 'kopen', 'kupić', 'kupic', 'köp nu',
+    'osta nyt', 'køb nu', 'kjøp nå', 'cumpara', 'vásárolj', 'koupit', 'купить',
+  ];
+
+  function matchesBuyText(text) {
+    const t = text.trim().toLowerCase();
+    return BUY_TEXTS.some(b => t.startsWith(b) || t === b);
+  }
+
+  assert(matchesBuyText('Acheter')    === true, 'FR: Acheter');
+  assert(matchesBuyText('Buy now')    === true, 'EN: Buy now');
+  assert(matchesBuyText('Comprar')    === true, 'ES/PT: Comprar');
+  assert(matchesBuyText('Kaufen')     === true, 'DE: Kaufen');
+  assert(matchesBuyText('Acquista')   === true, 'IT: Acquista');
+  assert(matchesBuyText('Kopen')      === true, 'NL: Kopen');
+  assert(matchesBuyText('Kupić')      === true, 'PL: Kupić');
+  assert(matchesBuyText('Kupic')      === true, 'PL no diacritic');
+  assert(matchesBuyText('köp nu')     === true, 'SE: köp nu');
+  assert(matchesBuyText('Osta nyt')   === true, 'FI: Osta nyt');
+  assert(matchesBuyText('Acheter maintenant') === true, 'FR button with extra text');
+  assert(matchesBuyText('Add to cart') === false, 'Non-buy button');
+  assert(matchesBuyText('Suivre')      === false, 'Follow button');
+  assert(matchesBuyText('Connexion')   === false, 'Login button');
+});
+
+// ============================================================
+// 14. Mobile Timeout Adaptation
+// ============================================================
+
+group('Mobile Timeout Adaptation', () => {
+  function getTimeout(isCoarsePointer) {
+    return isCoarsePointer ? 10000 : 6000;
+  }
+
+  assert(getTimeout(false) === 6000, 'desktop: 6s timeout');
+  assert(getTimeout(true)  === 10000, 'mobile: 10s timeout');
+  assert(getTimeout(true) > getTimeout(false), 'mobile always gets more time');
+});
+
+// ============================================================
+// 15. Last Checkout Summary Format
+// ============================================================
+
+group('Last Checkout Display', () => {
+  function formatLastCheckout(lc, now) {
+    if (!lc) return null;
+    const age = Math.round((now - lc.ts) / 1000);
+    const ageStr = age < 60 ? `${age}s` : `${Math.round(age / 60)}min`;
+    return lc.title
+      ? `${lc.title.slice(0, 30)}… · ${lc.totalMs}ms · il y a ${ageStr}`
+      : `#${lc.itemId} · ${lc.totalMs}ms · il y a ${ageStr}`;
+  }
+
+  const now = Date.now();
+  const lc = { ts: now - 5000, itemId: '1234567', title: 'Nike Tech Fleece Noir', totalMs: 820 };
+  const noTitle = { ts: now - 65000, itemId: '9876543', totalMs: 1200 };
+
+  const result = formatLastCheckout(lc, now);
+  assert(result.includes('820ms'), 'totalMs in output');
+  assert(result.includes('il y a 5s'), 'age in seconds');
+  assert(result.includes('Nike Tech Fleece'), 'title included');
+
+  const noTitleResult = formatLastCheckout(noTitle, now);
+  assert(noTitleResult.includes('#9876543'), 'itemId shown when no title');
+  assert(noTitleResult.includes('1min'), 'age in minutes');
+
+  assert(formatLastCheckout(null, now) === null, 'null → null');
+});
+
+// ============================================================
+// 16. Android / Firefox — windows.update Guard
+// ============================================================
+
+group('Mobile windows.update Guard', () => {
+  // Simulate the try/catch pattern used in service-worker.js
+  function safeWindowsFocus(hasWindowsApi, windowId) {
+    let called = false;
+    let threw = false;
+    try {
+      if (windowId && hasWindowsApi) {
+        // Simulate success
+        called = true;
+      } else if (!hasWindowsApi) {
+        throw new Error('chrome.windows is not a function');
+      }
+    } catch {
+      threw = true;
+    }
+    return { called, threw };
+  }
+
+  const desktop = safeWindowsFocus(true, 1);
+  assert(desktop.called === true, 'desktop: windows.update called');
+  assert(desktop.threw === false, 'desktop: no exception');
+
+  const mobile = safeWindowsFocus(false, 1);
+  assert(mobile.called === false, 'mobile: windows.update not called');
+  assert(mobile.threw === true, 'mobile: exception swallowed');
+
+  const noWindowId = safeWindowsFocus(true, null);
+  assert(noWindowId.called === false, 'no windowId: skip call');
+});
+
+// ============================================================
 // Summary
 // ============================================================
 

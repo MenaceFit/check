@@ -1,8 +1,18 @@
 {
   "manifest_version": 3,
   "name": "Quick Checkout — Autocop Vinted",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Accélère le checkout Vinted depuis le feed Autocop",
+
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "quick-checkout@autocop",
+      "strict_min_version": "126.0"
+    },
+    "gecko_android": {
+      "strict_min_version": "126.0"
+    }
+  },
 
   "permissions": [
     "storage",

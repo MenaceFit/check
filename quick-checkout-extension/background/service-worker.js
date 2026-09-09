@@ -137,6 +137,7 @@ async function getStatus() {
     'qc_session_status',
     'qc_checkout_count',
     'qc_latency_history',
+    'qc_last_checkout',
   ]);
 
   // Check if autocop is open in any tab
@@ -151,6 +152,7 @@ async function getStatus() {
     autocopDetected: autocopTabs.length > 0,
     checkoutCount: r['qc_checkout_count'] ?? 0,
     latencyHistory: r['qc_latency_history'] ?? [],
+    lastCheckout: r['qc_last_checkout'] ?? null,
     maskedToken: sessionManager.getMaskedToken(),
   };
 }
@@ -222,10 +224,19 @@ async function initiateQuickCheckout(listing, t0) {
   await recordLatency(metrics);
 
   const totalMs = metrics.t4 - metrics.t0;
-  log.info('Checkout opened', {
-    itemId,
-    totalMs,
-    tabId: tab?.id,
+  log.info('Checkout opened', { itemId, totalMs, tabId: tab?.id });
+
+  // Persist last checkout result for the popup to display
+  await chrome.storage.local.set({
+    qc_last_checkout: {
+      ts: Date.now(),
+      itemId,
+      title: listing.title?.slice(0, 60) ?? '',
+      price: listing.price ?? '',
+      currency: listing.currency ?? '€',
+      totalMs,
+      ok: true,
+    },
   });
 
   return {
@@ -243,23 +254,23 @@ async function initiateQuickCheckout(listing, t0) {
 }
 
 async function openCheckoutTab(url, itemId, metrics) {
-  // First check if Vinted is already open in a tab
   const domain = await detectVintedDomain();
   const existing = await chrome.tabs.query({ url: `*://${domain}/*` });
 
   let tab;
   if (existing.length > 0) {
-    // Reuse existing Vinted tab
     tab = existing[0];
     await chrome.tabs.update(tab.id, { url, active: true });
-    await chrome.windows.update(tab.windowId, { focused: true });
+    // chrome.windows API is unavailable on mobile browsers (Kiwi, Firefox Android)
+    try {
+      if (tab.windowId && chrome.windows?.update) {
+        await chrome.windows.update(tab.windowId, { focused: true });
+      }
+    } catch { /* mobile — windows API not supported, proceed silently */ }
   } else {
-    // Open new tab
     tab = await chrome.tabs.create({ url, active: true });
   }
 
-  // Tell the vinted content script to trigger buy once page loads
-  // We set a flag in storage that the content script polls
   await chrome.storage.local.set({
     qc_pending_checkout: {
       itemId,
