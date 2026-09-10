@@ -12,7 +12,6 @@ import android.view.View;
 import android.view.WindowManager;
 import android.webkit.CookieManager;
 import android.webkit.WebChromeClient;
-import android.webkit.WebResourceRequest;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
@@ -20,7 +19,7 @@ import android.widget.ProgressBar;
 import android.widget.RelativeLayout;
 import android.widget.TextView;
 
-import androidx.appcompat.app.AppCompatActivity;
+import android.app.Activity;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -43,7 +42,7 @@ import java.nio.charset.StandardCharsets;
  *
  * Settings (⚙️ button):  domain · autobuy · Bearer token (for API pre-check)
  */
-public class MainActivity extends AppCompatActivity {
+public class MainActivity extends Activity {
 
     static final String TAG    = "QC-Android";
     static final String PREFS  = "qc_prefs";
@@ -168,9 +167,8 @@ public class MainActivity extends AppCompatActivity {
                 injectIntoPage(url);
             }
 
-            @Override public boolean shouldOverrideUrlLoading(WebView v, WebResourceRequest r) {
-                // Keep everything (autocop + Vinted) inside the WebView
-                return false;
+            @Override public boolean shouldOverrideUrlLoading(WebView v, String url) {
+                return false; // keep autocop + Vinted inside the WebView
             }
         });
 

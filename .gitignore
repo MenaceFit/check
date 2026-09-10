@@ -1,3 +1,6 @@
 
 # Android SDK build artifacts (downloaded during dev)
 *.deb
+android-app/.gradle/
+android-app/local.properties
+*.deb

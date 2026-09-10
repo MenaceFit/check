@@ -5,7 +5,7 @@ import android.graphics.Color;
 import android.text.InputType;
 import android.view.View;
 import android.widget.*;
-import androidx.appcompat.app.AlertDialog;
+import android.app.AlertDialog;
 
 /**
  * Native settings dialog — opened by the ⚙️ FAB button.
