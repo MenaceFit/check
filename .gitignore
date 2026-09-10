@@ -1,0 +1,3 @@
+
+# Android SDK build artifacts (downloaded during dev)
+*.deb
