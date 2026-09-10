@@ -96,7 +96,13 @@ public class CheckoutBridge {
         Log.i(TAG, "Checkout → " + vintedUrl + "  autobuy=" + autobuy);
 
         // Navigate on the UI thread
-        activity.runOnUiThread(() -> webView.loadUrl(vintedUrl));
+        final String finalUrl = vintedUrl;
+        activity.runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                webView.loadUrl(finalUrl);
+            }
+        });
 
         long elapsed = System.currentTimeMillis() - t0;
         return "{\"ok\":true,\"metrics\":{\"t4_total_ms\":" + elapsed + "}}";

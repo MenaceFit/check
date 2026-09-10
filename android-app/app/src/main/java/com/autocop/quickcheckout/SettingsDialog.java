@@ -4,40 +4,38 @@ import android.content.Context;
 import android.graphics.Color;
 import android.text.InputType;
 import android.view.View;
-import android.widget.*;
+import android.widget.ArrayAdapter;
+import android.widget.Button;
+import android.widget.CompoundButton;
+import android.widget.EditText;
+import android.widget.LinearLayout;
+import android.widget.ScrollView;
+import android.widget.Spinner;
+import android.widget.Switch;
+import android.widget.TextView;
+import android.widget.Toast;
 import android.app.AlertDialog;
 
-/**
- * Native settings dialog — opened by the ⚙️ FAB button.
- *
- * Lets the user configure:
- *  - Vinted domain (market / country)
- *  - Autobuy on/off
- *  - Vinted Bearer token (optional — used for future API verification)
- *  - Quick link to log in to Vinted inside the WebView
- */
 public class SettingsDialog {
 
-    // Vinted markets in order of relevance (France first since user uses Google FR)
     private static final String[] DOMAINS = {
         "www.vinted.fr", "www.vinted.be", "www.vinted.es", "www.vinted.de",
         "www.vinted.it", "www.vinted.co.uk", "www.vinted.nl", "www.vinted.pl",
         "www.vinted.pt", "www.vinted.com"
     };
     private static final String[] DOMAIN_LABELS = {
-        "🇫🇷  vinted.fr (France)",  "🇧🇪  vinted.be (Belgique)",
-        "🇪🇸  vinted.es (Espagne)", "🇩🇪  vinted.de (Allemagne)",
-        "🇮🇹  vinted.it (Italie)",  "🇬🇧  vinted.co.uk (UK)",
-        "🇳🇱  vinted.nl (Pays-Bas)","🇵🇱  vinted.pl (Pologne)",
-        "🇵🇹  vinted.pt (Portugal)", "🌍  vinted.com (International)"
+        "FR  vinted.fr (France)",  "BE  vinted.be (Belgique)",
+        "ES  vinted.es (Espagne)", "DE  vinted.de (Allemagne)",
+        "IT  vinted.it (Italie)",  "UK  vinted.co.uk",
+        "NL  vinted.nl (Pays-Bas)","PL  vinted.pl (Pologne)",
+        "PT  vinted.pt (Portugal)", "INT vinted.com"
     };
 
-    public static void show(MainActivity activity) {
-        CheckoutBridge bridge = new CheckoutBridge(activity);
+    public static void show(final MainActivity activity) {
+        final CheckoutBridge bridge = new CheckoutBridge(activity);
         Context ctx = activity;
         int pad = dp(ctx, 20);
 
-        // Root scroll
         ScrollView scroll = new ScrollView(ctx);
         LinearLayout root = new LinearLayout(ctx);
         root.setOrientation(LinearLayout.VERTICAL);
@@ -45,12 +43,12 @@ public class SettingsDialog {
         root.setPadding(pad, pad, pad, pad);
         scroll.addView(root);
 
-        // ── Section: Domain ───────────────────────────────────────────────────
-        root.addView(sectionTitle(ctx, "🌍  Marché Vinted"));
-        root.addView(hint(ctx, "Sélectionnez le pays où vous achetez sur Vinted."));
+        // Domain
+        root.addView(sectionTitle(ctx, "Marche Vinted"));
+        root.addView(hint(ctx, "Selectionnez le pays ou vous achetez sur Vinted."));
 
-        Spinner domainSpinner = new Spinner(ctx);
-        ArrayAdapter<String> adapter = new ArrayAdapter<>(ctx,
+        final Spinner domainSpinner = new Spinner(ctx);
+        ArrayAdapter<String> adapter = new ArrayAdapter<String>(ctx,
             android.R.layout.simple_spinner_dropdown_item, DOMAIN_LABELS);
         domainSpinner.setAdapter(adapter);
         String currentDomain = bridge.getVintedDomain();
@@ -59,82 +57,90 @@ public class SettingsDialog {
         }
         root.addView(domainSpinner, wrapParams(ctx, 0, 6, 0, 20));
 
-        // ── Section: Autobuy ──────────────────────────────────────────────────
+        // Autobuy
         root.addView(divider(ctx));
-        root.addView(sectionTitle(ctx, "🤖  Autobuy"));
+        root.addView(sectionTitle(ctx, "Autobuy"));
 
         LinearLayout autobuyRow = row(ctx);
         TextView autobuyLbl = label(ctx, "Achat automatique complet");
         autobuyRow.addView(autobuyLbl, stretchParam());
-        Switch autobuySwitch = new Switch(ctx);
+        final Switch autobuySwitch = new Switch(ctx);
         autobuySwitch.setChecked(bridge.getAutobuy());
         autobuyRow.addView(autobuySwitch);
         root.addView(autobuyRow, wrapParams(ctx, 0, 8, 0, 4));
 
-        TextView autobuyWarn = hint(ctx,
-            "⚠️  En mode autobuy, l'achat est finalisé automatiquement :\n" +
-            "Acheter → Livraison Continuer → Payer\n" +
-            "Assurez-vous d'avoir une adresse et un paiement enregistrés sur Vinted.");
+        final TextView autobuyWarn = hint(ctx,
+            "ATTENTION : En mode autobuy, l'achat est finalise automatiquement :\n" +
+            "Acheter -> Livraison Continuer -> Payer\n" +
+            "Assurez-vous d'avoir une adresse et un paiement enregistres sur Vinted.");
         autobuyWarn.setTextColor(Color.parseColor("#FFC107"));
         autobuyWarn.setVisibility(autobuySwitch.isChecked() ? View.VISIBLE : View.GONE);
         root.addView(autobuyWarn, wrapParams(ctx, 0, 0, 0, 16));
-        autobuySwitch.setOnCheckedChangeListener((b, on) ->
-            autobuyWarn.setVisibility(on ? View.VISIBLE : View.GONE));
 
-        // ── Section: Token ────────────────────────────────────────────────────
+        autobuySwitch.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+            @Override
+            public void onCheckedChanged(CompoundButton b, boolean on) {
+                autobuyWarn.setVisibility(on ? View.VISIBLE : View.GONE);
+            }
+        });
+
+        // Token
         root.addView(divider(ctx));
-        root.addView(sectionTitle(ctx, "🔑  Token Vinted (optionnel)"));
+        root.addView(sectionTitle(ctx, "Token Vinted (optionnel)"));
         root.addView(hint(ctx,
-            "Bearer token de l'API Vinted. Permet de vérifier la disponibilité " +
-            "d'un article avant de naviguer vers sa page. Laissez vide pour désactiver."));
+            "Bearer token de l'API Vinted. Laissez vide pour desactiver."));
 
         LinearLayout tokenRow = row(ctx);
-        EditText tokenField = new EditText(ctx);
+        final EditText tokenField = new EditText(ctx);
         tokenField.setHint("eyJ0eXAiOiJKV1QiLCJhbGciOiJS...");
         tokenField.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
         tokenField.setTextColor(Color.WHITE);
         tokenField.setHintTextColor(Color.parseColor("#555566"));
         tokenField.setSaveEnabled(false);
-        String savedToken = bridge.getToken();
+        final String savedToken = bridge.getToken();
         tokenField.setText(savedToken);
         tokenRow.addView(tokenField, stretchParam());
 
-        // Show/hide toggle
-        TextView eyeBtn = new TextView(ctx);
-        eyeBtn.setText("👁");
+        final TextView eyeBtn = new TextView(ctx);
+        eyeBtn.setText("O");
         eyeBtn.setTextSize(18);
         eyeBtn.setPadding(dp(ctx, 8), 0, 0, 0);
         eyeBtn.setTextColor(Color.parseColor("#6C63FF"));
         final boolean[] visible = {false};
-        eyeBtn.setOnClickListener(v -> {
-            visible[0] = !visible[0];
-            tokenField.setInputType(visible[0]
-                ? InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD
-                : InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
-            tokenField.setSelection(tokenField.getText().length());
+        eyeBtn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                visible[0] = !visible[0];
+                tokenField.setInputType(visible[0]
+                    ? InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD
+                    : InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
+                tokenField.setSelection(tokenField.getText().length());
+            }
         });
         tokenRow.addView(eyeBtn);
         root.addView(tokenRow, wrapParams(ctx, 0, 8, 0, 4));
 
-        // Clear token link
-        TextView clearBtn = new TextView(ctx);
+        final TextView clearBtn = new TextView(ctx);
         clearBtn.setText("Effacer le token");
         clearBtn.setTextColor(Color.parseColor("#FF5555"));
         clearBtn.setTextSize(12);
         clearBtn.setPadding(0, dp(ctx, 4), 0, dp(ctx, 4));
         clearBtn.setVisibility(savedToken.isEmpty() ? View.GONE : View.VISIBLE);
-        clearBtn.setOnClickListener(v -> {
-            tokenField.setText("");
-            clearBtn.setVisibility(View.GONE);
+        clearBtn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                tokenField.setText("");
+                clearBtn.setVisibility(View.GONE);
+            }
         });
         root.addView(clearBtn, wrapParams(ctx, 0, 0, 0, 16));
 
-        // ── Section: Vinted login ─────────────────────────────────────────────
+        // Vinted login
         root.addView(divider(ctx));
-        root.addView(sectionTitle(ctx, "🔓  Connexion Vinted"));
+        root.addView(sectionTitle(ctx, "Connexion Vinted"));
         root.addView(hint(ctx,
-            "L'app utilise votre session Vinted (cookies). Si vous n'êtes pas encore " +
-            "connecté(e), appuyez sur le bouton ci-dessous pour ouvrir la page de connexion."));
+            "L'app utilise votre session Vinted (cookies). Si vous n'etes pas encore " +
+            "connecte(e), appuyez sur le bouton ci-dessous pour ouvrir la page de connexion."));
 
         Button loginBtn = new Button(ctx);
         loginBtn.setText("Ouvrir Vinted pour se connecter");
@@ -142,48 +148,57 @@ public class SettingsDialog {
         loginBtn.setBackgroundColor(Color.parseColor("#6C63FF"));
         root.addView(loginBtn, wrapParams(ctx, 0, 8, 0, 4));
 
-        // ── Build the dialog ──────────────────────────────────────────────────
-        AlertDialog dialog = new AlertDialog.Builder(activity)
+        final AlertDialog dialog = new AlertDialog.Builder(activity)
             .setView(scroll)
             .setPositiveButton("Enregistrer", null)
             .setNegativeButton("Annuler", null)
             .create();
 
-        loginBtn.setOnClickListener(v -> {
-            // Save first so domain is correct before navigating
-            String domain = DOMAINS[domainSpinner.getSelectedItemPosition()];
-            bridge.setVintedDomain(domain);
-            dialog.dismiss();
-            activity.webView.post(() ->
-                activity.webView.loadUrl("https://" + domain + "/member/login_form"));
+        loginBtn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                final String domain = DOMAINS[domainSpinner.getSelectedItemPosition()];
+                bridge.setVintedDomain(domain);
+                dialog.dismiss();
+                activity.webView.post(new Runnable() {
+                    @Override
+                    public void run() {
+                        activity.webView.loadUrl("https://" + domain + "/member/login_form");
+                    }
+                });
+            }
         });
 
         dialog.show();
 
-        // Positive button saves without dismissing until validated
-        dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
-            String domain  = DOMAINS[domainSpinner.getSelectedItemPosition()];
-            boolean autobuy = autobuySwitch.isChecked();
-            String token    = tokenField.getText().toString().trim();
+        dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                final String domain  = DOMAINS[domainSpinner.getSelectedItemPosition()];
+                final boolean autobuy = autobuySwitch.isChecked();
+                final String token    = tokenField.getText().toString().trim();
 
-            bridge.setVintedDomain(domain);
-            bridge.setAutobuy(autobuy);
-            bridge.setToken(token);
+                bridge.setVintedDomain(domain);
+                bridge.setAutobuy(autobuy);
+                bridge.setToken(token);
 
-            // Push autobuy state into the WebView's storage so live scripts see it
-            if (activity.webView != null) {
-                activity.webView.post(() ->
-                    activity.webView.evaluateJavascript(
+                if (activity.webView != null) {
+                    final String js =
                         "if(window.__QCBridge)__QCBridge.storageSet('{\"qc_autobuy\":" +
-                        autobuy + "}');", null));
-            }
+                        autobuy + "}');";
+                    activity.webView.post(new Runnable() {
+                        @Override
+                        public void run() {
+                            activity.webView.evaluateJavascript(js, null);
+                        }
+                    });
+                }
 
-            Toast.makeText(activity, "✅ Réglages enregistrés !", Toast.LENGTH_SHORT).show();
-            dialog.dismiss();
+                Toast.makeText(activity, "Reglages enregistres !", Toast.LENGTH_SHORT).show();
+                dialog.dismiss();
+            }
         });
     }
-
-    // ── View helpers ──────────────────────────────────────────────────────────
 
     private static TextView sectionTitle(Context ctx, String text) {
         TextView tv = new TextView(ctx);
