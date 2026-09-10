@@ -4,3 +4,4 @@
 android-app/.gradle/
 android-app/local.properties
 *.deb
+javac.*.args
