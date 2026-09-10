@@ -26,6 +26,7 @@ chrome.runtime.onInstalled.addListener(async () => {
     qc_checkout_count: 0,
     qc_latency_history: [],
     qc_session_status: 'unknown',
+    qc_autobuy: false,
   });
   await sessionManager.init();
 });
@@ -99,6 +100,14 @@ async function handleMessage(msg, sender) {
       sessionManager.clearToken();
       return { ok: true };
 
+    case 'TOGGLE_AUTOBUY': {
+      const r = await chrome.storage.local.get('qc_autobuy');
+      const newVal = !r['qc_autobuy'];
+      await chrome.storage.local.set({ qc_autobuy: newVal });
+      log.info(`Autobuy ${newVal ? 'ON' : 'OFF'}`);
+      return { ok: true, autobuy: newVal };
+    }
+
     case 'QUICK_CHECKOUT':
       return await initiateQuickCheckout(msg.listing, msg.t0);
 
@@ -138,6 +147,7 @@ async function getStatus() {
     'qc_checkout_count',
     'qc_latency_history',
     'qc_last_checkout',
+    'qc_autobuy',
   ]);
 
   // Check if autocop is open in any tab
@@ -153,6 +163,7 @@ async function getStatus() {
     checkoutCount: r['qc_checkout_count'] ?? 0,
     latencyHistory: r['qc_latency_history'] ?? [],
     lastCheckout: r['qc_last_checkout'] ?? null,
+    autobuy: r['qc_autobuy'] ?? false,
     maskedToken: sessionManager.getMaskedToken(),
   };
 }

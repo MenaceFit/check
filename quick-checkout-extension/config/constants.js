@@ -31,6 +31,7 @@ export const STORAGE_KEYS = {
   LAST_SESSION_CHECK: 'qc_last_session_check',
   CHECKOUT_COUNT: 'qc_checkout_count',
   LATENCY_HISTORY: 'qc_latency_history',
+  AUTOBUY: 'qc_autobuy',
 };
 
 // Session check interval (ms)

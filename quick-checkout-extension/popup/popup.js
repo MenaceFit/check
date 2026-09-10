@@ -19,6 +19,8 @@ const metricsLatency    = $('metrics-latency');
 const metricsCount      = $('metrics-count');
 const metricsLast       = $('metrics-last');
 const lastCheckoutRow   = $('last-checkout-row');
+const toggleAutobuy     = $('toggle-autobuy');
+const autobuyWarning    = $('autobuy-warning');
 
 // Status elements
 const statusVinted   = $('status-vinted');
@@ -62,6 +64,10 @@ function applyStatus(s) {
   } else {
     setStatus(statusCheckout, 'warn', '🟡 En attente');
   }
+
+  // Autobuy toggle
+  toggleAutobuy.checked = s.autobuy ?? false;
+  autobuyWarning.style.display = s.autobuy ? 'block' : 'none';
 
   // Toggle
   toggleEnabled.checked = s.enabled ?? true;
@@ -193,6 +199,11 @@ tokenClear.addEventListener('click', async () => {
   await chrome.runtime.sendMessage({ type: 'CLEAR_VTOOLS_TOKEN' });
   tokenStatus.style.display = 'none';
   tokenClear.style.display = 'none';
+});
+
+toggleAutobuy.addEventListener('change', async () => {
+  const r = await chrome.runtime.sendMessage({ type: 'TOGGLE_AUTOBUY' });
+  autobuyWarning.style.display = r?.autobuy ? 'block' : 'none';
 });
 
 // ---- Init ----

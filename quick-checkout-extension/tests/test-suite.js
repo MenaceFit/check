@@ -312,7 +312,79 @@ group('Card De-duplication', () => {
 });
 
 // ============================================================
-// 13. Buy Button Text Detection (all locales)
+// 13. Autobuy — Flow State Machine
+// ============================================================
+
+group('Autobuy Flow State Machine', () => {
+  const DELIVERY_TEXTS = ['continuer', 'continue', 'suivant', 'next', 'weiter', 'doorgaan'];
+  const PAY_TEXTS = ['payer', 'confirmer et payer', 'pay', 'confirm and pay', 'zahlen', 'betalen en bevestigen', 'place order'];
+
+  function matchText(text, list) {
+    const t = text.trim().toLowerCase();
+    return list.some(x => t === x || t.startsWith(x + ' ') || t.startsWith(x + '\n'));
+  }
+
+  // Delivery step
+  assert(matchText('Continuer', DELIVERY_TEXTS)      === true, 'FR delivery: Continuer');
+  assert(matchText('Continue', DELIVERY_TEXTS)        === true, 'EN delivery: Continue');
+  assert(matchText('Suivant', DELIVERY_TEXTS)         === true, 'FR delivery: Suivant');
+  assert(matchText('Weiter', DELIVERY_TEXTS)          === true, 'DE delivery: Weiter');
+  assert(matchText('Doorgaan', DELIVERY_TEXTS)        === true, 'NL delivery: Doorgaan');
+  assert(matchText('Payer', DELIVERY_TEXTS)           === false, 'Pay not a delivery btn');
+
+  // Payment step
+  assert(matchText('Payer', PAY_TEXTS)                === true, 'FR pay: Payer');
+  assert(matchText('Confirmer et payer', PAY_TEXTS)   === true, 'FR pay: Confirmer et payer');
+  assert(matchText('Pay', PAY_TEXTS)                  === true, 'EN pay: Pay');
+  assert(matchText('Confirm and pay', PAY_TEXTS)      === true, 'EN pay: Confirm and pay');
+  assert(matchText('Zahlen', PAY_TEXTS)               === true, 'DE pay: Zahlen');
+  assert(matchText('Place order', PAY_TEXTS)          === true, 'EN pay: Place order');
+  assert(matchText('Continuer', PAY_TEXTS)            === false, 'Continue not a pay btn');
+
+  // State machine transitions
+  function nextStep(current) {
+    if (current === 'buy') return 'delivery';
+    if (current === 'delivery') return 'payment';
+    if (current === 'payment') return 'done';
+    return null;
+  }
+  assert(nextStep('buy')      === 'delivery', 'buy → delivery');
+  assert(nextStep('delivery') === 'payment',  'delivery → payment');
+  assert(nextStep('payment')  === 'done',     'payment → done');
+  assert(nextStep('done')     === null,       'done → null');
+});
+
+// ============================================================
+// 14. Autobuy — Session Storage flow key
+// ============================================================
+
+group('Autobuy Session Storage State', () => {
+  // Simulate sessionStorage get/set
+  const store = {};
+  const FLOW_KEY = 'qc_autobuy_flow';
+  function getFlow() {
+    try { return JSON.parse(store[FLOW_KEY] || 'null'); } catch { return null; }
+  }
+  function setFlow(s) {
+    if (s) store[FLOW_KEY] = JSON.stringify(s);
+    else delete store[FLOW_KEY];
+  }
+
+  assert(getFlow() === null, 'empty store → null');
+
+  setFlow({ step: 'delivery', itemId: '123', t0: 1000 });
+  assert(getFlow()?.step === 'delivery', 'delivery state stored');
+  assert(getFlow()?.itemId === '123', 'itemId preserved');
+
+  setFlow({ step: 'payment', itemId: '123', t0: 1000 });
+  assert(getFlow()?.step === 'payment', 'step updated to payment');
+
+  setFlow(null);
+  assert(getFlow() === null, 'cleared on null');
+});
+
+// ============================================================
+// 15. Buy Button Text Detection (all locales)
 // ============================================================
 
 group('Buy Button Locale Detection', () => {

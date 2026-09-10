@@ -122,6 +122,23 @@
 
   <div class="divider"></div>
 
+  <!-- Autobuy toggle -->
+  <div class="config-row" id="autobuy-row">
+    <label class="config-label" for="toggle-autobuy" style="display:flex;align-items:center;gap:6px">
+      🤖 Autobuy
+      <span style="font-size:10px;color:var(--yellow);background:rgba(234,179,8,.15);border-radius:3px;padding:1px 5px">BETA</span>
+    </label>
+    <label class="toggle-switch" title="Achat automatique complet (livraison + paiement)">
+      <input type="checkbox" id="toggle-autobuy">
+      <span class="slider"></span>
+    </label>
+  </div>
+  <div id="autobuy-warning" style="display:none;padding:6px 14px;font-size:11px;color:var(--yellow);background:rgba(234,179,8,.08);border-top:1px solid rgba(234,179,8,.2)">
+    ⚠️ Mode autobuy : l'achat est finalisé automatiquement sans confirmation manuelle.
+  </div>
+
+  <div class="divider"></div>
+
   <!-- Actions -->
   <div class="actions-row">
     <button id="btn-check-session" class="btn-secondary">↺ Vérifier session</button>
