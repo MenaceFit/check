@@ -1,5 +1,6 @@
 package com.autocop.quickcheckout;
 
+import android.content.Context;
 import android.content.SharedPreferences;
 import android.util.Log;
 import android.webkit.JavascriptInterface;
@@ -12,194 +13,276 @@ import org.json.JSONObject;
 import java.util.Iterator;
 
 /**
- * JavaScript bridge injected as window.__QCBridge.
+ * JavaScript bridge exposed as window.__QCBridge inside the WebView.
  *
- * Replaces chrome.runtime.sendMessage + chrome.storage.local in the injected
- * content scripts so they work inside an Android WebView without the Chrome
- * extension APIs.
+ * Replaces chrome.runtime.sendMessage + chrome.storage.local so the injected
+ * content scripts work without the Chrome Extension API.
  *
- * All methods annotated with @JavascriptInterface run on a background thread.
+ * Storage design:
+ *   - Everything stored as strings in SharedPreferences ("qc_storage")
+ *   - Booleans → "true" / "false"
+ *   - JSON objects/arrays → their toString() representation
+ *   - Parsed back to proper JS types in storageGet (object → JSONObject, bool → boolean, etc.)
+ *
+ * Config (domain, token) lives in a separate "qc_prefs" file to keep
+ * extension-storage separate from app settings.
+ *
+ * All @JavascriptInterface methods run on a background thread — UI operations
+ * must be posted via activity.runOnUiThread().
  */
 public class CheckoutBridge {
 
-    private static final String TAG = "QC-Bridge";
-    private static final String PREFS_STORAGE = "qc_storage";
+    private static final String TAG          = "QC-Bridge";
+    private static final String PREFS_STORE  = "qc_storage";
 
-    private final MainActivity activity;
-    private final WebView webView;
-    private final SharedPreferences prefs;
-    private final SharedPreferences storage;
-    private final String vintedCheckoutJs;
-    private final String autocopInjectedCss;
+    private final MainActivity        activity;
+    private final WebView             webView;
+    private final SharedPreferences   prefs;    // app config: domain, token, first_launch
+    private final SharedPreferences   store;    // chrome.storage.local equivalent
 
-    public CheckoutBridge(MainActivity activity, WebView webView,
-                          SharedPreferences prefs,
-                          String vintedCheckoutJs, String autocopInjectedCss) {
-        this.activity          = activity;
-        this.webView           = webView;
-        this.prefs             = prefs;
-        this.vintedCheckoutJs  = vintedCheckoutJs;
-        this.autocopInjectedCss = autocopInjectedCss;
-        this.storage = activity.getSharedPreferences(PREFS_STORAGE, android.content.Context.MODE_PRIVATE);
+    public CheckoutBridge(MainActivity activity) {
+        this.activity = activity;
+        this.webView  = activity.webView;
+        this.prefs    = activity.prefs;
+        this.store    = activity.getSharedPreferences(PREFS_STORE, Context.MODE_PRIVATE);
     }
 
-    // ── chrome.runtime.sendMessage replacement ─────────────────────────────────
+    // ── chrome.runtime.sendMessage ────────────────────────────────────────────
 
     @JavascriptInterface
     public String sendMessage(String jsonMsg) {
         try {
-            JSONObject msg = new JSONObject(jsonMsg);
-            String type = msg.optString("type", "");
+            JSONObject msg  = new JSONObject(jsonMsg);
+            String     type = msg.optString("type", "");
             Log.d(TAG, "sendMessage: " + type);
 
             switch (type) {
-                case "QUICK_CHECKOUT":
-                    return handleQuickCheckout(msg);
-                case "CHECKOUT_METRICS":
-                    handleMetrics(msg);
-                    return jsonOk();
-                case "PING":
-                    return "{\"ok\":true,\"pong\":true}";
+                case "QUICK_CHECKOUT":   return handleCheckout(msg);
+                case "CHECKOUT_METRICS": logMetrics(msg);           return ok();
+                case "GET_CONFIG":       return buildConfig();
+                case "PING":             return "{\"ok\":true,\"pong\":true}";
                 default:
-                    Log.w(TAG, "Unhandled message type: " + type);
-                    return "{\"ok\":false,\"error\":\"Unknown type\"}";
+                    Log.w(TAG, "Unknown message type: " + type);
+                    return "{\"ok\":false,\"error\":\"unknown_type\"}";
             }
         } catch (JSONException e) {
-            Log.e(TAG, "JSON error in sendMessage", e);
-            return "{\"ok\":false,\"error\":\"JSON error\"}";
+            Log.e(TAG, "sendMessage JSON error", e);
+            return "{\"ok\":false,\"error\":\"json_error\"}";
         }
     }
 
-    private String handleQuickCheckout(JSONObject msg) throws JSONException {
+    // ── QUICK_CHECKOUT handler ────────────────────────────────────────────────
+
+    private String handleCheckout(JSONObject msg) throws JSONException {
         JSONObject listing = msg.optJSONObject("listing");
-        if (listing == null) return "{\"ok\":false,\"error\":\"No listing\"}";
+        if (listing == null) return err("no_listing");
 
-        String itemId = listing.optString("id");
-        if (itemId.isEmpty()) return "{\"ok\":false,\"error\":\"No itemId\"}";
+        String itemId = listing.optString("id", "").trim();
+        if (itemId.isEmpty()) return err("no_item_id");
 
-        long t0 = msg.optLong("t0", System.currentTimeMillis());
-        boolean autobuy = storage.getBoolean("qc_autobuy", false);
+        long    t0      = msg.optLong("t0", System.currentTimeMillis());
+        boolean autobuy = "true".equals(store.getString("qc_autobuy", "false"));
+        String  domain  = prefs.getString("qc_vinted_domain", "www.vinted.fr");
 
-        // Store pending checkout in prefs so vinted-checkout.js can read it
+        // Persist pending checkout so vinted-checkout.js can read it after navigation
         JSONObject pending = new JSONObject();
-        pending.put("itemId", itemId);
-        pending.put("ts", t0);
+        pending.put("itemId",  itemId);
+        pending.put("ts",      t0);
         pending.put("autobuy", autobuy);
-        storage.edit().putString("qc_pending_checkout", pending.toString()).apply();
-        storage.edit().putBoolean("qc_autobuy", autobuy).apply();
+        storeWrite("qc_pending_checkout", pending.toString());
+        storeWrite("qc_autobuy",          String.valueOf(autobuy));
 
-        // Navigate the WebView to the Vinted item page
-        String domain = prefs.getString("qc_vinted_domain", "www.vinted.fr");
-        final String vintedUrl = "https://" + domain + "/items/" + itemId;
+        String vintedUrl = "https://" + domain + "/items/" + itemId;
+        Log.i(TAG, "Checkout → " + vintedUrl + "  autobuy=" + autobuy);
 
+        // Navigate on the UI thread
         activity.runOnUiThread(() -> webView.loadUrl(vintedUrl));
 
-        long totalMs = System.currentTimeMillis() - t0;
-        return "{\"ok\":true,\"metrics\":{\"t4_total_ms\":" + totalMs + "}}";
+        long elapsed = System.currentTimeMillis() - t0;
+        return "{\"ok\":true,\"metrics\":{\"t4_total_ms\":" + elapsed + "}}";
     }
 
-    private void handleMetrics(JSONObject msg) {
+    private void logMetrics(JSONObject msg) {
         try {
-            long t_start   = msg.optLong("t_start", 0);
-            long t_clicked = msg.optLong("t_clicked", 0);
-            if (t_start > 0 && t_clicked > 0) {
-                long total = t_clicked - t_start;
-                Log.i(TAG, "Checkout completed in " + total + "ms for item " +
-                        msg.optString("itemId"));
+            long   tStart   = msg.optLong("t_start",   0);
+            long   tClicked = msg.optLong("t_clicked",  0);
+            String itemId   = msg.optString("itemId",  "?");
+            if (tStart > 0 && tClicked > 0) {
+                Log.i(TAG, "Checkout[" + itemId + "] done in " + (tClicked - tStart) + "ms");
             }
         } catch (Exception e) {
-            Log.e(TAG, "Metrics error", e);
+            Log.w(TAG, "logMetrics: " + e.getMessage());
         }
     }
 
-    // ── chrome.storage.local replacement ──────────────────────────────────────
+    // ── GET_CONFIG — called by JS when it needs app settings ─────────────────
+
+    @JavascriptInterface
+    public String buildConfig() {
+        try {
+            JSONObject cfg = new JSONObject();
+            cfg.put("autobuy",  "true".equals(store.getString("qc_autobuy", "false")));
+            cfg.put("domain",   prefs.getString("qc_vinted_domain", "www.vinted.fr"));
+            cfg.put("hasToken", !prefs.getString("qc_token", "").isEmpty());
+            cfg.put("version",  "1.3.0");
+            return cfg.toString();
+        } catch (JSONException e) {
+            return "{\"ok\":false}";
+        }
+    }
+
+    // ── chrome.storage.local.get ──────────────────────────────────────────────
+    //
+    // Input: JSON.stringify of either
+    //   - an array  ["key1","key2"]
+    //   - an object {"key1":default1}
+    //   - a single quoted key  "keyName"
+    //
+    // Output: JSON object {"key1": value1, ...}
+    //   Values are typed: booleans as boolean, numbers as number, objects as object.
 
     @JavascriptInterface
     public String storageGet(String keysJson) {
         try {
-            JSONObject result = new JSONObject();
-            if (keysJson.startsWith("[")) {
-                JSONArray keys = new JSONArray(keysJson);
+            if (keysJson == null || keysJson.isEmpty()) return "{}";
+            JSONObject result  = new JSONObject();
+            String     trimmed = keysJson.trim();
+
+            if (trimmed.startsWith("[")) {
+                JSONArray keys = new JSONArray(trimmed);
                 for (int i = 0; i < keys.length(); i++) {
-                    String k = keys.getString(i);
-                    String v = storage.getString(k, null);
-                    if (v != null) {
-                        try { result.put(k, new JSONObject(v)); } catch (JSONException ex) {
-                            try { result.put(k, new JSONArray(v)); } catch (JSONException ex2) {
-                                // Scalar
-                                if ("true".equals(v)) result.put(k, true);
-                                else if ("false".equals(v)) result.put(k, false);
-                                else { try { result.put(k, Long.parseLong(v)); } catch (NumberFormatException nfe) { result.put(k, v); } }
-                            }
-                        }
-                    }
+                    readKey(result, keys.getString(i));
                 }
-            } else if (keysJson.startsWith("{")) {
-                JSONObject req = new JSONObject(keysJson);
-                Iterator<String> it = req.keys();
-                while (it.hasNext()) {
-                    String k = it.next();
-                    String v = storage.getString(k, null);
-                    if (v != null) result.put(k, v);
+            } else if (trimmed.startsWith("{")) {
+                JSONObject req = new JSONObject(trimmed);
+                for (Iterator<String> it = req.keys(); it.hasNext(); ) {
+                    readKey(result, it.next());
                 }
             } else {
-                // Single key (string)
-                String k = keysJson.replaceAll("\"", "");
-                String v = storage.getString(k, null);
-                if (v != null) result.put(k, v);
+                // Single string key, possibly JSON-quoted ("keyName" or keyName)
+                readKey(result, trimmed.replaceAll("^\"|\"$", ""));
             }
             return result.toString();
         } catch (JSONException e) {
-            Log.e(TAG, "storageGet error", e);
+            Log.e(TAG, "storageGet error for: " + keysJson, e);
             return "{}";
         }
     }
 
+    /** Reads one key from SharedPreferences and puts it (with proper type) into out. */
+    private void readKey(JSONObject out, String key) throws JSONException {
+        String raw = store.getString(key, null);
+        if (raw == null) return;  // key not present → omit (JS code uses ?? defaults)
+
+        // JSON object
+        if (raw.startsWith("{")) {
+            try { out.put(key, new JSONObject(raw)); return; } catch (JSONException ignored) {}
+        }
+        // JSON array
+        if (raw.startsWith("[")) {
+            try { out.put(key, new JSONArray(raw)); return; } catch (JSONException ignored) {}
+        }
+        // Boolean
+        if ("true".equals(raw))  { out.put(key, true);  return; }
+        if ("false".equals(raw)) { out.put(key, false); return; }
+        // Integer
+        try { out.put(key, Long.parseLong(raw)); return; } catch (NumberFormatException ignored) {}
+        // Float
+        try { out.put(key, Double.parseDouble(raw)); return; } catch (NumberFormatException ignored) {}
+        // Plain string
+        out.put(key, raw);
+    }
+
+    // ── chrome.storage.local.set ──────────────────────────────────────────────
+
     @JavascriptInterface
     public void storageSet(String valuesJson) {
         try {
-            JSONObject obj = new JSONObject(valuesJson);
-            SharedPreferences.Editor editor = storage.edit();
-            Iterator<String> it = obj.keys();
-            while (it.hasNext()) {
+            JSONObject            obj    = new JSONObject(valuesJson);
+            SharedPreferences.Editor ed = store.edit();
+            for (Iterator<String> it = obj.keys(); it.hasNext(); ) {
                 String k = it.next();
                 Object v = obj.get(k);
-                if (v instanceof Boolean) editor.putBoolean(k, (Boolean) v);
-                else editor.putString(k, v.toString());
+                if (v == JSONObject.NULL) {
+                    ed.remove(k);
+                } else if (v instanceof JSONObject || v instanceof JSONArray) {
+                    ed.putString(k, v.toString());
+                } else {
+                    // Booleans, numbers, strings → store as their string representation
+                    ed.putString(k, String.valueOf(v));
+                }
             }
-            editor.apply();
+            ed.apply();
         } catch (JSONException e) {
             Log.e(TAG, "storageSet error", e);
         }
     }
 
+    // ── chrome.storage.local.remove ───────────────────────────────────────────
+
     @JavascriptInterface
     public void storageRemove(String keyJson) {
         try {
-            String k = keyJson.replaceAll("\"", "").replaceAll("[\\[\\]]", "");
-            storage.edit().remove(k).apply();
-        } catch (Exception e) {
+            String trimmed = keyJson.trim();
+            SharedPreferences.Editor ed = store.edit();
+            if (trimmed.startsWith("[")) {
+                JSONArray arr = new JSONArray(trimmed);
+                for (int i = 0; i < arr.length(); i++) ed.remove(arr.getString(i));
+            } else {
+                ed.remove(trimmed.replaceAll("^\"|\"$", ""));
+            }
+            ed.apply();
+        } catch (JSONException e) {
             Log.e(TAG, "storageRemove error", e);
         }
     }
 
-    // ── Settings helpers ───────────────────────────────────────────────────────
+    // ── Convenience methods callable from SettingsDialog ─────────────────────
 
-    @JavascriptInterface
-    public void setAutobuy(boolean enabled) {
-        storage.edit().putBoolean("qc_autobuy", enabled).apply();
+    void setAutobuy(boolean enabled) {
+        storeWrite("qc_autobuy", String.valueOf(enabled));
         Log.i(TAG, "Autobuy " + (enabled ? "ON" : "OFF"));
     }
 
-    @JavascriptInterface
-    public boolean getAutobuy() {
-        return storage.getBoolean("qc_autobuy", false);
+    boolean getAutobuy() {
+        return "true".equals(store.getString("qc_autobuy", "false"));
     }
 
-    @JavascriptInterface
-    public void setVintedDomain(String domain) {
-        prefs.edit().putString("qc_vinted_domain", domain).apply();
+    void setVintedDomain(String domain) {
+        if (domain != null && !domain.isEmpty()) {
+            prefs.edit().putString("qc_vinted_domain", domain).apply();
+        }
     }
 
-    private String jsonOk() { return "{\"ok\":true}"; }
+    String getVintedDomain() {
+        return prefs.getString("qc_vinted_domain", "www.vinted.fr");
+    }
+
+    void setToken(String token) {
+        if (token == null || token.isEmpty()) {
+            prefs.edit().remove("qc_token").apply();
+        } else {
+            prefs.edit().putString("qc_token", token).apply();
+        }
+        Log.i(TAG, "Token " + (token == null || token.isEmpty() ? "cleared" : "set (" + maskToken(token) + ")"));
+    }
+
+    String getToken() {
+        return prefs.getString("qc_token", "");
+    }
+
+    private static String maskToken(String t) {
+        if (t == null || t.length() <= 8)  return "****";
+        if (t.length() <= 12) return t.substring(0, 3) + "****" + t.substring(t.length() - 2);
+        return t.substring(0, 6) + "****" + t.substring(t.length() - 4);
+    }
+
+    // ── Internal helpers ──────────────────────────────────────────────────────
+
+    private void storeWrite(String key, String value) {
+        store.edit().putString(key, value).apply();
+    }
+
+    private String ok()            { return "{\"ok\":true}"; }
+    private String err(String msg) { return "{\"ok\":false,\"error\":\"" + msg + "\"}"; }
 }

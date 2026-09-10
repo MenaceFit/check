@@ -1,56 +1,77 @@
 # Quick Checkout — Build Instructions (Android)
 
-## Prerequisites
-- Android Studio (Hedgehog 2023.1.1+) **or** Android SDK command-line tools
-- Java 17+ (bundled with Android Studio)
-- Internet access (to download Gradle + dependencies on first build)
+## Prérequis
+- Android Studio (Hedgehog 2023.1.1+) **ou** Android SDK command-line tools
+- Java 17+ (fourni avec Android Studio)
+- Connexion Internet (pour télécharger Gradle + dépendances au premier build)
 
-## Build with Android Studio (recommended — 2 clicks)
+## Build avec Android Studio (recommandé — 2 clics)
 
-1. Open Android Studio → **File → Open** → select the `android-app/` folder
-2. Wait for Gradle sync (first time ~2 min)
+1. Ouvrir Android Studio → **File → Open** → sélectionner le dossier `android-app/`
+2. Attendre la sync Gradle (environ 2 min la première fois)
 3. **Build → Build Bundle(s) / APK(s) → Build APK(s)**
-4. APK is at `app/build/outputs/apk/debug/app-debug.apk`
+4. L'APK est dans `app/build/outputs/apk/debug/app-debug.apk`
 
-## Build from command line
+## Build en ligne de commande
 
 ```bash
 cd android-app
 chmod +x gradlew
 
-# Debug APK (no signing needed)
+# APK debug (pas besoin de signature)
 ./gradlew assembleDebug
 
-# APK path:
+# Chemin de l'APK :
 # app/build/outputs/apk/debug/app-debug.apk
 ```
 
-## Install on device
+## Installer sur l'appareil
 
 ```bash
 # Via USB (ADB)
 adb install app/build/outputs/apk/debug/app-debug.apk
 
-# Or copy the APK to the device and open it (enable Unknown Sources in Settings)
+# Ou copier l'APK sur le téléphone et l'ouvrir
+# (activer "Sources inconnues" dans les réglages Android)
 ```
 
-## What the app does
+## Ce que fait l'app
 
-- Opens **autocop.app** in a full-screen WebView
-- Injects `autocop-detector.js` — adds ⚡ CHECKOUT buttons on each listing card
-- When you tap ⚡ CHECKOUT, navigates to the Vinted item page
-- Injects `vinted-checkout.js` — auto-clicks "Acheter"
-- **Autobuy mode** (toggle in the app): also clicks "Continuer" (delivery) and "Payer" (payment)
-- Uses your existing Vinted login session (cookies are shared in the WebView)
+- Ouvre **autocop.app** dans un WebView plein écran
+- Injecte `autocop-detector.js` — ajoute un bouton ⚡ CHECKOUT sur chaque carte du feed
+- Quand vous tapez ⚡ CHECKOUT, navigue vers la page article Vinted
+- Injecte `vinted-checkout.js` — clique automatiquement sur "Acheter"
+- **Mode Autobuy** (réglable dans les paramètres) : clique aussi sur "Continuer" (livraison)
+  puis sur "Payer" (paiement) — achat entièrement automatique
 
-## First-time setup in the app
+## Premier lancement
 
-1. The app opens autocop.app — log in if you haven't already
-2. Open any Vinted link once to log in to Vinted inside the WebView
-3. Come back to autocop.app — ⚡ buttons appear on listing cards
-4. Tap ⚡ CHECKOUT on any listing to start the checkout flow
+1. L'app s'ouvre sur autocop.app — les **réglages** s'affichent automatiquement
+2. Configurer :
+   - **Marché Vinted** : `🇫🇷 vinted.fr` (France) est sélectionné par défaut
+   - **Autobuy** : activez si vous voulez l'achat entièrement automatique
+   - **Token Vinted** : optionnel — votre Bearer token pour la vérification API
+3. Appuyer sur **"Ouvrir Vinted pour se connecter"** si vous n'êtes pas encore connecté
+4. Revenir sur autocop.app → les boutons ⚡ apparaissent sur les cartes
+5. Taper ⚡ CHECKOUT sur un article pour lancer le checkout
+
+## Paramètres (bouton ⚙️ en bas à droite)
+
+| Paramètre | Description |
+|-----------|-------------|
+| Marché Vinted | Domaine Vinted selon votre pays (fr, be, es, de, it...) |
+| Autobuy | Achat automatique complet sans confirmation manuelle |
+| Token Vinted | Bearer token API (optionnel, pour vérification de dispo) |
+
+## Obtenir votre token Vinted (optionnel)
+
+Le token Bearer Vinted se trouve dans les requêtes réseau de l'app Vinted :
+1. Sur un téléphone Android : activer le mode développeur + proxy Charles/mitmproxy
+2. Chercher une requête vers `api.vinted.fr` — copier le header `Authorization: Bearer eyJ...`
+3. Coller le token dans les réglages de l'app (sans le mot "Bearer")
 
 ## DuckDuckGo
 
-DuckDuckGo on Android does not support extensions and does not expose a WebView
-injection API — this APK replaces it entirely.
+DuckDuckGo sur Android ne supporte pas les extensions et n'expose pas d'API WebView —
+cette APK le remplace complètement. Utilisez **Kiwi Browser** si vous préférez une
+solution basée sur les extensions Chrome.
