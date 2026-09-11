@@ -1,0 +1,55 @@
+name: Build Windows EXE
+
+on:
+  push:
+    branches:
+      - claude/autocop-quick-checkout-extension-gormd0
+      - main
+    paths:
+      - pc-app/**
+      - .github/workflows/build-pc.yml
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: pc-app
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pywebview==4.4.1 pyinstaller==6.10.0
+
+      - name: Build EXE with PyInstaller
+        run: |
+          pyinstaller ^
+            --onefile ^
+            --windowed ^
+            --name "QuickCheckout" ^
+            --hidden-import webview ^
+            --hidden-import webview.platforms.winforms ^
+            quickcheckout.py
+        shell: cmd
+
+      - name: Verify build
+        run: |
+          if exist dist\QuickCheckout.exe (echo Build OK) else (echo Build FAILED && exit 1)
+        shell: cmd
+
+      - name: Upload EXE artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: QuickCheckout-Windows-EXE
+          path: pc-app/dist/QuickCheckout.exe
+          retention-days: 30
