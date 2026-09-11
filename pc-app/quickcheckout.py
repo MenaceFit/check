@@ -4,7 +4,36 @@ Quick Checkout PC — autocop.app + Vinted autobuy
 WebView2-based desktop app, no extension needed.
 """
 
-import webview
+import sys
+import subprocess
+
+
+def _show_error(title, msg):
+    """Show a visible error dialog before exiting."""
+    try:
+        import tkinter as tk
+        from tkinter import messagebox
+        root = tk.Tk()
+        root.withdraw()
+        messagebox.showerror(title, msg)
+        root.destroy()
+    except Exception:
+        print(f'\n[ERREUR] {title}\n{msg}\n')
+        input('Appuyez sur Entrée pour quitter...')
+
+
+try:
+    import webview
+except ImportError:
+    _show_error(
+        'Quick Checkout — Module manquant',
+        'pywebview n\'est pas installé.\n\n'
+        'Utilisez run.bat pour installer automatiquement,\n'
+        'ou lancez dans un terminal :\n\n'
+        '    pip install pywebview\n\n'
+        'puis relancez quickcheckout.py'
+    )
+    sys.exit(1)
 
 # ── Detector: injected on autocop.app ────────────────────────────────────────
 
@@ -266,19 +295,39 @@ def inject_scripts(window):
 
 
 def main():
-    window = webview.create_window(
-        title='⚡ Quick Checkout',
-        url='https://autocop.app',
-        width=1440,
-        height=900,
-        min_size=(900, 600),
-        confirm_close=False,
-        background_color='#0a0a1a',
-    )
+    try:
+        window = webview.create_window(
+            title='⚡ Quick Checkout',
+            url='https://autocop.app',
+            width=1440,
+            height=900,
+            min_size=(900, 600),
+            confirm_close=False,
+            background_color='#0a0a1a',
+        )
 
-    window.events.loaded += lambda: inject_scripts(window)
+        try:
+            window.events.loaded += lambda: inject_scripts(window)
+        except AttributeError:
+            pass  # older pywebview — injection handled via on_start below
 
-    webview.start(debug=False, private_mode=False)
+        def on_start(w):
+            try:
+                w.events.loaded += lambda: inject_scripts(w)
+            except AttributeError:
+                pass
+
+        webview.start(on_start, window, debug=False, private_mode=False)
+
+    except Exception as e:
+        _show_error(
+            'Quick Checkout — Erreur de démarrage',
+            f'L\'application n\'a pas pu démarrer :\n\n{e}\n\n'
+            'Essayez :\n  pip install --upgrade pywebview\n\n'
+            'Si le problème persiste, vérifiez que Microsoft Edge\n'
+            'est installé sur votre PC (Windows 10/11).'
+        )
+        sys.exit(1)
 
 
 if __name__ == '__main__':
