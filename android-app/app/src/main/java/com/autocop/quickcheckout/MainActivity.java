@@ -188,6 +188,36 @@ public class MainActivity extends Activity {
         }
     }
 
+    void clearVintedCookies() {
+        try {
+            CookieManager cm = CookieManager.getInstance();
+            // Clear cookies for all Vinted domains
+            String[] vintedDomains = {
+                "https://www.vinted.fr", "https://www.vinted.be", "https://www.vinted.es",
+                "https://www.vinted.de", "https://www.vinted.it", "https://www.vinted.co.uk",
+                "https://www.vinted.nl", "https://www.vinted.pl", "https://www.vinted.pt",
+                "https://www.vinted.com"
+            };
+            for (String domain : vintedDomains) {
+                String cookies = cm.getCookie(domain);
+                if (cookies == null) continue;
+                for (String part : cookies.split(";")) {
+                    String name = part.trim().split("=")[0];
+                    if (!name.isEmpty()) {
+                        cm.setCookie(domain, name + "=; Max-Age=0; Path=/");
+                    }
+                }
+            }
+            cm.removeAllCookies(null);
+            cm.flush();
+            // Clear stored token too
+            prefs.edit().remove("qc_token").apply();
+            Log.i(TAG, "Vinted cookies cleared");
+        } catch (Exception e) {
+            Log.e(TAG, "clearVintedCookies error", e);
+        }
+    }
+
     void extractAndSaveVintedToken(String url) {
         try {
             String domain = "https://www.vinted.fr";
