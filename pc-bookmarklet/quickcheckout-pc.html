@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Quick Checkout PC — Installation</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--purple:#6c63ff;--purple-dark:#5546d4;--bg:#0a0a1a;--card:#12122a;--card2:#1a1a35;--text:#e8e8f0;--muted:#888;--green:#22c55e;--red:#ef4444}
+body{background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,'Segoe UI',sans-serif;min-height:100vh;padding:0}
+.hero{background:linear-gradient(135deg,#0d0d2e 0%,#1a1040 100%);padding:60px 24px 48px;text-align:center;border-bottom:1px solid rgba(108,99,255,.2)}
+.logo{font-size:52px;margin-bottom:12px}
+h1{font-size:32px;font-weight:900;letter-spacing:-.02em;background:linear-gradient(135deg,#a29bfe,#6c63ff);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.hero-sub{font-size:15px;color:var(--muted);margin-top:8px;line-height:1.6}
+.badge{display:inline-block;margin-top:14px;padding:5px 14px;background:rgba(108,99,255,.15);border:1px solid rgba(108,99,255,.35);border-radius:20px;font-size:12px;font-weight:700;color:#a29bfe;letter-spacing:.06em}
+.container{max-width:700px;margin:0 auto;padding:40px 24px}
+.bm-section{text-align:center;margin-bottom:40px}
+.bm-label{font-size:13px;color:var(--muted);margin-bottom:16px;font-weight:600;text-transform:uppercase;letter-spacing:.08em}
+.bm-link-wrapper{display:flex;justify-content:center;align-items:center;gap:12px;flex-wrap:wrap}
+#bm-link{display:inline-flex;align-items:center;gap:8px;padding:14px 28px;background:linear-gradient(135deg,var(--purple),var(--purple-dark));color:#fff;border-radius:50px;font-size:15px;font-weight:800;text-decoration:none;box-shadow:0 4px 24px rgba(108,99,255,.45);cursor:grab;transition:transform .15s,box-shadow .15s;white-space:nowrap;letter-spacing:.03em}
+#bm-link:hover{transform:translateY(-2px) scale(1.04);box-shadow:0 8px 32px rgba(108,99,255,.6)}
+#bm-link:active{transform:scale(.97);cursor:grabbing}
+.bm-hint{font-size:12px;color:var(--muted);margin-top:10px}
+.bm-hint span{color:#a29bfe;font-weight:600}
+.steps{display:flex;flex-direction:column;gap:16px;margin-bottom:40px}
+.step{background:var(--card);border:1px solid rgba(108,99,255,.15);border-radius:16px;padding:20px 24px;display:flex;gap:18px;align-items:flex-start}
+.step-num{min-width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,var(--purple),var(--purple-dark));display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:900;flex-shrink:0}
+.step-body h3{font-size:14px;font-weight:800;margin-bottom:4px;color:#fff}
+.step-body p{font-size:13px;color:var(--muted);line-height:1.6}
+.step-body code{background:rgba(108,99,255,.15);border:1px solid rgba(108,99,255,.25);border-radius:6px;padding:1px 7px;font-size:12px;color:#a29bfe;font-family:monospace}
+.section-title{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:16px;padding-bottom:8px;border-bottom:1px solid rgba(255,255,255,.06)}
+.features{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:40px}
+.feat{background:var(--card);border:1px solid rgba(108,99,255,.1);border-radius:14px;padding:16px}
+.feat-icon{font-size:24px;margin-bottom:8px}
+.feat h4{font-size:13px;font-weight:700;margin-bottom:4px}
+.feat p{font-size:12px;color:var(--muted);line-height:1.5}
+.info-box{background:var(--card2);border:1px solid rgba(108,99,255,.2);border-radius:14px;padding:20px 24px;margin-bottom:24px}
+.info-box h4{font-size:13px;font-weight:800;color:#a29bfe;margin-bottom:8px}
+.info-box p{font-size:12px;color:var(--muted);line-height:1.65}
+.info-box ul{margin-left:16px;margin-top:6px}
+.info-box ul li{font-size:12px;color:var(--muted);line-height:1.7}
+.info-box ul li span{color:var(--green);font-weight:700}
+.footer{text-align:center;padding:32px 24px;border-top:1px solid rgba(255,255,255,.05);color:var(--muted);font-size:12px}
+.footer span{color:#a29bfe}
+@media(max-width:520px){.features{grid-template-columns:1fr}.hero{padding:40px 16px 32px}h1{font-size:26px}.container{padding:24px 16px}}
+</style>
+</head>
+<body>
+
+<div class="hero">
+  <div class="logo">⚡</div>
+  <h1>Quick Checkout PC</h1>
+  <p class="hero-sub">Checkout ultra-rapide sur autocop.app &amp; autobuy Vinted<br>Sans extension — fonctionne sur DuckDuckGo, Chrome, Firefox, Safari</p>
+  <div class="badge">v1.0.0 · Bookmarklet</div>
+</div>
+
+<div class="container">
+
+  <div class="bm-section">
+    <div class="bm-label">Votre bookmarklet — glissez-le dans votre barre de favoris</div>
+    <div class="bm-link-wrapper">
+      <a id="bm-link" href="#" title="Glissez ce lien dans votre barre de favoris">
+        ⚡ Quick Checkout
+      </a>
+    </div>
+    <div class="bm-hint">Glissez ⟶ barre de favoris &nbsp;|&nbsp; ou clic droit → <span>Ajouter aux favoris</span></div>
+  </div>
+
+  <div class="section-title">Comment utiliser</div>
+
+  <div class="steps">
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-body">
+        <h3>Glisser le bouton dans vos favoris</h3>
+        <p>Glissez le bouton <code>⚡ Quick Checkout</code> ci-dessus directement dans votre barre de favoris du navigateur. Si la barre n'est pas visible : <code>Ctrl+Shift+B</code> (Windows/Linux) ou <code>Cmd+Shift+B</code> (Mac).</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-body">
+        <h3>Activer sur autocop.app</h3>
+        <p>Allez sur <code>autocop.app</code> et cliquez le bookmarklet ⚡ dans vos favoris. Des boutons CHECKOUT apparaissent sur chaque article Vinted. Cliquez le bouton ⚡ flottant (bas-droite) pour configurer le marché et activer l'autobuy.</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-body">
+        <h3>Cliquer CHECKOUT sur un article</h3>
+        <p>Cliquez le bouton <code>⚡ CHECKOUT</code> sur un article — Vinted s'ouvre dans un nouvel onglet. Passez sur cet onglet, puis re-cliquez le bookmarklet ⚡ pour lancer l'autobuy automatiquement.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="section-title">Fonctionnalités</div>
+
+  <div class="features">
+    <div class="feat">
+      <div class="feat-icon">⚡</div>
+      <h4>Boutons CHECKOUT</h4>
+      <p>Injection automatique sur tous les liens Vinted détectés dans le feed autocop.app.</p>
+    </div>
+    <div class="feat">
+      <div class="feat-icon">🤖</div>
+      <h4>Autobuy</h4>
+      <p>Clique Acheter → Livraison → Payer automatiquement. Overlay de progression en temps réel.</p>
+    </div>
+    <div class="feat">
+      <div class="feat-icon">✅</div>
+      <h4>Dispo en temps réel</h4>
+      <p>Vérifie la disponibilité via l'API Vinted (token requis). Articles vendus affichés en gris.</p>
+    </div>
+    <div class="feat">
+      <div class="feat-icon">🔒</div>
+      <h4>100% local</h4>
+      <p>Aucune donnée envoyée à l'extérieur. Paramètres stockés uniquement dans votre navigateur.</p>
+    </div>
+  </div>
+
+  <div class="info-box">
+    <h4>Token Bearer (optionnel)</h4>
+    <p>Le token Bearer permet la vérification de disponibilité en temps réel. Pour l'obtenir :</p>
+    <ul>
+      <li><span>1.</span> Connectez-vous sur Vinted dans votre navigateur</li>
+      <li><span>2.</span> Ouvrez les DevTools (F12) → Onglet Réseau</li>
+      <li><span>3.</span> Filtrez sur <code>/api/v2/</code> → Cherchez le header <code>Authorization: Bearer ...</code></li>
+      <li><span>4.</span> Copiez le token et collez-le dans les paramètres ⚡</li>
+    </ul>
+  </div>
+
+  <div class="info-box">
+    <h4>Compatibilité navigateurs</h4>
+    <p>Ce bookmarklet fonctionne sur tout navigateur moderne. Pour DuckDuckGo Desktop : activez la barre de favoris dans les paramètres si elle n'est pas visible. Le bookmarklet s'exécute sur la page courante sans aucune installation supplémentaire.</p>
+  </div>
+
+</div>
+
+<div class="footer">
+  <p>Quick Checkout PC · Aucune donnée bancaire stockée · Token jamais transmis à des tiers</p>
+  <p style="margin-top:6px">Fait avec <span>⚡</span> par autocop</p>
+</div>
+
+<!-- Bookmarklet source (readable, auto-encoded below) -->
+<script id="bm-src" type="text/plain">
+(function(){
+'use strict';
+var LS=localStorage,CFG='__qcCfg',PND='__qcPending';
+var cfg={domain:'www.vinted.fr',autobuy:false,token:''};
+try{var _c=JSON.parse(LS.getItem(CFG)||'{}');for(var k in _c)if(_c.hasOwnProperty(k))cfg[k]=_c[k];}catch(e){}
+function saveCfg(){try{LS.setItem(CFG,JSON.stringify(cfg));}catch(e){}}
+var host=location.hostname;
+if(/autocop\.app/i.test(host)){runDetector();return;}
+if(/vinted\./i.test(host)){runCheckout();return;}
+alert('⚡ Quick Checkout PC\nActivez ce bookmarklet sur autocop.app ou une page Vinted !');
+function runDetector(){
+if(window.__qcPC){showPanel();return;}
+window.__qcPC=true;
+injectStyle([
+'.qc-bc{position:absolute;top:6px;right:6px;z-index:9999;display:flex;flex-direction:column;align-items:flex-end;gap:4px;pointer-events:none}',
+'.qc-cb{pointer-events:all;display:inline-flex;align-items:center;gap:5px;padding:5px 11px;background:linear-gradient(135deg,#6c63ff,#5546d4);color:#fff;border:none;border-radius:18px;font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;box-shadow:0 2px 10px rgba(108,99,255,.45);transition:transform .1s,box-shadow .1s;white-space:nowrap;font-family:system-ui,sans-serif;line-height:1.2}',
+'.qc-cb:hover{transform:translateY(-1px) scale(1.04);box-shadow:0 4px 16px rgba(108,99,255,.6)}',
+'.qc-cb:active{transform:scale(.94)}',
+'.qc-cb:disabled{opacity:.5;cursor:not-allowed;transform:none}',
+'.qc-sold{background:linear-gradient(135deg,#555,#333)!important;box-shadow:none!important}',
+'.qc-avail{background:linear-gradient(135deg,#2D6A4F,#1a4534)}',
+'.qc-toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);z-index:999999;padding:10px 22px;border-radius:20px;font-family:system-ui,sans-serif;font-size:13px;font-weight:700;color:#fff;pointer-events:none;transition:opacity .3s;white-space:nowrap}',
+'.qc-fab{position:fixed;bottom:20px;right:20px;z-index:99998;width:46px;height:46px;border-radius:23px;background:linear-gradient(135deg,#6c63ff,#5546d4);color:#fff;border:none;cursor:pointer;font-size:22px;box-shadow:0 4px 16px rgba(108,99,255,.5);display:flex;align-items:center;justify-content:center;line-height:1}',
+'.qc-panel{position:fixed;bottom:76px;right:20px;z-index:99999;background:#1a1a2e;border-radius:16px;padding:20px;width:272px;color:#fff;font-family:system-ui,sans-serif;box-shadow:0 8px 32px rgba(0,0,0,.6);border:1px solid rgba(108,99,255,.3)}',
+'.qc-panel h4{margin:0 0 14px;font-size:14px;color:#a29bfe;letter-spacing:.05em;text-transform:uppercase;font-weight:800}',
+'.qc-lbl{display:block;font-size:11px;color:#888;margin:10px 0 3px;font-weight:600}',
+'.qc-sel,.qc-inp{width:100%;padding:7px 10px;border-radius:8px;border:1px solid #2a2a4a;background:#0f0f23;color:#fff;font-size:12px;box-sizing:border-box;outline:none}',
+'.qc-row{display:flex;align-items:center;gap:8px;margin-top:12px}',
+'.qc-sw{width:38px;height:21px;-webkit-appearance:none;appearance:none;background:#333;border-radius:11px;cursor:pointer;position:relative;transition:background .2s;flex-shrink:0;border:none;outline:none}',
+'.qc-sw:checked{background:#6c63ff}',
+'.qc-sw::before{content:"";position:absolute;width:17px;height:17px;border-radius:50%;background:#fff;top:2px;left:2px;transition:left .2s}',
+'.qc-sw:checked::before{left:19px}',
+'.qc-save{width:100%;margin-top:14px;padding:9px;border-radius:10px;border:none;background:#6c63ff;color:#fff;font-size:13px;font-weight:700;cursor:pointer}',
+'.qc-close{position:absolute;top:12px;right:14px;background:none;border:none;color:#666;cursor:pointer;font-size:16px;line-height:1}',
+].join(''),'qc-det-style');
+scan();
+var obs=new MutationObserver(function(){clearTimeout(window.__qcST);window.__qcST=setTimeout(scan,150);});
+obs.observe(document.documentElement,{childList:true,subtree:true});
+showFAB();
+toast('⚡ Quick Checkout activé !');
+}
+var _proc=new WeakSet(),_avc={};
+function scan(){
+var links=document.querySelectorAll('a[href*="vinted."]');
+for(var i=0;i<links.length;i++){
+var a=links[i];
+if(_proc.has(a))continue;
+if(!/vinted\.(fr|be|es|de|it|co\.uk|nl|pl|pt|com)/i.test(a.href))continue;
+var id=getId(a.href);
+if(!id)continue;
+_proc.add(a);
+injectBtn(a,id);
+}
+}
+function getId(url){
+var m=url.match(/\/items\/(\d+)/);if(m)return m[1];
+m=url.match(/[-\/](\d{7,})/);return m?m[1]:null;
+}
+function cardOf(a){
+var el=a.parentElement,best=a;
+for(var d=0;d<10&&el;d++){
+var r=el.getBoundingClientRect();
+if(r.width>=80&&r.height>=80){best=el;if(el.parentElement&&el.parentElement.querySelectorAll('a[href*="vinted."]').length>3)break;}
+el=el.parentElement;
+}
+return best;
+}
+function injectBtn(a,id){
+var card=cardOf(a);
+if(card.querySelector('[data-qcid="'+id+'"]'))return;
+var pe=card.querySelector('[class*="price" i]');
+var te=card.querySelector('[class*="title" i],[class*="name" i],h2,h3,strong');
+var ps=pe?' '+(pe.textContent||'').replace(/[^0-9,.\s€\xa3]/g,'').trim():'';
+var title=(te?te.textContent.trim():'')||'Article';
+var btn=document.createElement('button');
+btn.className='qc-cb';btn.dataset.qcid=id;
+btn.innerHTML='⚡ CHECKOUT'+ps;
+btn.title='Quick Checkout: '+title;
+if(cfg.token){
+checkAvail(id).then(function(ok){
+if(ok===false){btn.innerHTML='❌ VENDU';btn.classList.add('qc-sold');btn.disabled=true;}
+else if(ok===true)btn.classList.add('qc-avail');
+});
+}
+btn.addEventListener('click',function(e){
+e.preventDefault();e.stopPropagation();
+if(btn.disabled)return;
+doCheckout(btn,id,a.href,title,ps);
+});
+var wrap=document.createElement('div');wrap.className='qc-bc';wrap.appendChild(btn);
+if(getComputedStyle(card).position==='static')card.style.position='relative';
+card.appendChild(wrap);
+}
+function checkAvail(id){
+var now=Date.now();
+if(_avc[id]&&now-_avc[id].ts<30000)return Promise.resolve(_avc[id].ok);
+return fetch('https://'+cfg.domain+'/api/v2/items/'+id,{
+headers:{Authorization:'Bearer '+cfg.token,Accept:'application/json'},
+credentials:'include'
+}).then(function(r){
+if(!r.ok){_avc[id]={ok:null,ts:Date.now()};return null;}
+return r.json().then(function(d){
+var item=d.item||d.data;if(!item)return null;
+var ok=item.can_be_sold!==false&&item.is_for_sale!==false&&item.status!=='sold';
+_avc[id]={ok:ok,ts:Date.now()};return ok;
+});
+}).catch(function(){return null;});
+}
+function doCheckout(btn,id,href,title,ps){
+btn.innerHTML='⏳ ...';btn.disabled=true;
+var pending={itemId:id,title:title,price:ps,autobuy:cfg.autobuy,ts:Date.now(),domain:cfg.domain};
+try{LS.setItem(PND,JSON.stringify(pending));}catch(e){}
+window.open('https://'+cfg.domain+'/items/'+id,'_blank');
+setTimeout(function(){
+btn.innerHTML='✅ OUVERT';
+setTimeout(function(){btn.innerHTML='⚡ CHECKOUT'+ps;btn.disabled=false;},2500);
+},500);
+}
+function showFAB(){
+if(document.getElementById('qc-fab'))return;
+var fab=document.createElement('button');
+fab.id='qc-fab';fab.className='qc-fab';fab.title='Paramètres Quick Checkout';
+fab.textContent='⚡';
+fab.addEventListener('click',function(){showPanel();});
+document.body.appendChild(fab);
+}
+function showPanel(){
+var old=document.getElementById('qc-panel');if(old){old.remove();return;}
+var p=document.createElement('div');p.id='qc-panel';p.className='qc-panel';
+p.style.cssText='position:fixed;bottom:76px;right:20px;z-index:99999;background:#1a1a2e;border-radius:16px;padding:20px;width:272px;color:#fff;font-family:system-ui,sans-serif;box-shadow:0 8px 32px rgba(0,0,0,.6);border:1px solid rgba(108,99,255,.3)';
+p.innerHTML=[
+'<button class="qc-close" id="qc-close">✕</button>',
+'<h4>⚡ QUICK CHECKOUT</h4>',
+'<label class="qc-lbl">Marché Vinted</label>',
+'<select class="qc-sel" id="qc-dom">',
+'<option value="www.vinted.fr">vinted.fr (France)</option>',
+'<option value="www.vinted.be">vinted.be (Belgique)</option>',
+'<option value="www.vinted.es">vinted.es (Espagne)</option>',
+'<option value="www.vinted.de">vinted.de (Allemagne)</option>',
+'<option value="www.vinted.it">vinted.it (Italie)</option>',
+'<option value="www.vinted.co.uk">vinted.co.uk (UK)</option>',
+'<option value="www.vinted.nl">vinted.nl (Pays-Bas)</option>',
+'<option value="www.vinted.pl">vinted.pl (Pologne)</option>',
+'<option value="www.vinted.pt">vinted.pt (Portugal)</option>',
+'</select>',
+'<div class="qc-row">',
+'<input type="checkbox" class="qc-sw" id="qc-ab">',
+'<label for="qc-ab" style="font-size:13px;cursor:pointer;color:#fff">Autobuy activé</label>',
+'</div>',
+'<label class="qc-lbl">Bearer Token (pour vérif dispo)</label>',
+'<input type="password" class="qc-inp" id="qc-tok" placeholder="Token Vinted...">',
+'<button class="qc-save" id="qc-sv">💾 Sauvegarder</button>',
+].join('');
+document.body.appendChild(p);
+document.getElementById('qc-dom').value=cfg.domain;
+document.getElementById('qc-ab').checked=cfg.autobuy;
+document.getElementById('qc-tok').value=cfg.token;
+document.getElementById('qc-close').addEventListener('click',function(){p.remove();});
+document.getElementById('qc-sv').addEventListener('click',function(){
+cfg.domain=document.getElementById('qc-dom').value;
+cfg.autobuy=document.getElementById('qc-ab').checked;
+cfg.token=document.getElementById('qc-tok').value.trim();
+saveCfg();toast('✅ Sauvegardé !');p.remove();
+});
+}
+function toast(msg){
+var t=document.createElement('div');t.className='qc-toast';
+t.style.background='rgba(108,99,255,.92)';t.textContent=msg;
+document.body.appendChild(t);
+setTimeout(function(){t.style.opacity='0';setTimeout(function(){t.remove();},300);},2500);
+}
+function runCheckout(){
+var pending=null;
+try{
+var raw=LS.getItem(PND);
+if(raw){pending=JSON.parse(raw);if(Date.now()-pending.ts>60000)pending=null;}
+}catch(e){}
+injectStyle([
+'.qc-ov{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.78);z-index:999999;display:flex;align-items:center;justify-content:center;font-family:system-ui,sans-serif}',
+'.qc-ob{background:#1a1a2e;border-radius:20px;padding:36px 52px;text-align:center;min-width:260px;border:1px solid rgba(108,99,255,.3)}',
+'.qc-ot{font-size:22px;font-weight:900;color:#fff;margin-bottom:6px}',
+'.qc-os{font-size:14px;color:#a29bfe;margin-bottom:20px;min-height:20px}',
+'.qc-pb{width:200px;height:6px;background:#2a2a4a;border-radius:3px;overflow:hidden;margin:0 auto}',
+'.qc-pf{height:100%;background:linear-gradient(90deg,#6c63ff,#a29bfe);border-radius:3px;transition:width .4s}',
+'.qc-vt{position:fixed;bottom:20px;right:20px;z-index:99999;padding:12px 20px;border-radius:12px;font-family:system-ui,sans-serif;font-size:13px;font-weight:700;color:#fff;pointer-events:none}',
+].join(''),'qc-chk-style');
+if(!pending){vToast('⚡ Quick Checkout prêt — cliquez Acheter');return;}
+if(!pending.autobuy){vToast('⚡ Quick Checkout — cliquez Acheter pour payer');return;}
+startAutobuy(pending);
+}
+var _ov=null,_pf=null;
+function showOv(step,pct){
+if(!_ov){
+_ov=document.createElement('div');_ov.className='qc-ov';
+_ov.innerHTML='<div class="qc-ob"><div class="qc-ot">⚡ Quick Checkout</div><div class="qc-os" id="qcs"></div><div class="qc-pb"><div class="qc-pf" id="qcp" style="width:0"></div></div></div>';
+document.body.appendChild(_ov);_pf=document.getElementById('qcp');
+}
+document.getElementById('qcs').textContent=step;
+if(_pf)_pf.style.width=pct+'%';
+}
+function hideOv(ok,msg){
+var s=document.getElementById('qcs');if(s)s.textContent=msg;
+if(_pf)_pf.style.width='100%';
+var box=_ov&&_ov.querySelector('.qc-ob');
+if(box)box.style.borderTop='3px solid '+(ok?'#22c55e':'#ef4444');
+setTimeout(function(){if(_ov){_ov.remove();_ov=null;}},2500);
+}
+function waitFor(fn,ms){
+return new Promise(function(res,rej){
+var t=Date.now()+ms;
+function tick(){var el=fn();if(el)return res(el);if(Date.now()>t)return rej(new Error('Timeout'));requestAnimationFrame(tick);}
+tick();
+});
+}
+function tap(el){
+el.scrollIntoView({behavior:'smooth',block:'center'});
+el.focus();
+['pointerdown','pointerup','click'].forEach(function(type){
+try{el.dispatchEvent(new PointerEvent(type,{bubbles:true,cancelable:true}));}catch(e){el.dispatchEvent(new MouseEvent(type,{bubbles:true,cancelable:true}));}
+});
+}
+function findBtn(re){
+var els=document.querySelectorAll('button,[role="button"],input[type="submit"]');
+for(var i=0;i<els.length;i++){
+var el=els[i],txt=(el.textContent||el.value||'').trim();
+if(re.test(txt)&&el.offsetParent!==null&&!el.disabled)return el;
+}
+return null;
+}
+function sleep(ms){return new Promise(function(r){setTimeout(r,ms);});}
+function startAutobuy(pending){
+showOv('Recherche bouton Acheter…',8);
+waitFor(function(){return findBtn(/acheter|buy|kaufen|comprar|acquista|kopen|kup|acquérir/i);},9000)
+.then(function(buyBtn){
+showOv('Clic sur Acheter…',28);
+return sleep(300).then(function(){tap(buyBtn);return sleep(200);});
+})
+.then(function(){
+showOv('Attente sélection livraison…',50);
+return waitFor(function(){return findBtn(/continuer|continue|suivant|next|weiter|siguiente|avanti|volgende|dalej|continuar/i);},14000);
+})
+.then(function(contBtn){
+showOv('Confirmation livraison…',72);
+return sleep(350).then(function(){tap(contBtn);return sleep(200);});
+})
+.then(function(){
+showOv('Attente confirmation paiement…',85);
+return waitFor(function(){return findBtn(/payer|pay|zahlen|pagar|pagare|betalen|zap.a./i);},14000);
+})
+.then(function(payBtn){
+showOv('Finalisation…',95);
+return sleep(350).then(function(){tap(payBtn);});
+})
+.then(function(){
+hideOv(true,'✅ Checkout terminé !');
+try{LS.removeItem('__qcPending');}catch(e){}
+})
+.catch(function(e){
+hideOv(false,'❌ '+e.message);
+});
+}
+function vToast(msg){
+var t=document.createElement('div');t.className='qc-vt';
+t.style.background='rgba(108,99,255,.9)';t.textContent=msg;
+document.body.appendChild(t);setTimeout(function(){t.remove();},5000);
+}
+function injectStyle(css,id){
+if(document.getElementById(id))return;
+var s=document.createElement('style');s.id=id;s.textContent=css;
+(document.head||document.documentElement).appendChild(s);
+}
+})();
+</script>
+
+<script>
+(function() {
+  var src = document.getElementById('bm-src').textContent.trim();
+  // Remove multi-line comments
+  src = src.replace(/\/\*[\s\S]*?\*\//g, '');
+  // Remove single-line comments (but not URLs)
+  src = src.replace(/([^:]|^)\/\/.*$/gm, '$1');
+  // Collapse whitespace
+  src = src.replace(/\s+/g, ' ').trim();
+  document.getElementById('bm-link').href = 'javascript:' + encodeURIComponent(src);
+})();
+</script>
+
+</body>
+</html>
