@@ -12,7 +12,10 @@ import android.view.View;
 import android.view.WindowManager;
 import android.webkit.CookieManager;
 import android.webkit.WebChromeClient;
+import android.webkit.WebResourceRequest;
+import android.webkit.WebResourceResponse;
 import android.webkit.WebSettings;
+import android.webkit.WebStorage;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.ProgressBar;
@@ -21,6 +24,7 @@ import android.widget.TextView;
 
 import android.app.Activity;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
@@ -33,6 +37,101 @@ public class MainActivity extends Activity {
 
     static final String AUTOCOP_URL = "https://autocop.app";
 
+    // ── IAB vendor / tracker domains to block ────────────────────────────────
+    // Full third-party ad networks, analytics, fingerprinting, and consent mgmt
+    private static final String[] BLOCKED_DOMAINS = {
+        // Google advertising & tracking (Maps/Search API allowed separately)
+        "doubleclick.net", "googlesyndication.com", "googleadservices.com",
+        "google-analytics.com", "googletagmanager.com", "googletagservices.com",
+        "adservice.google.com", "adservice.google.fr", "adservice.google.co.uk",
+        "pagead2.googlesyndication.com", "stats.g.doubleclick.net",
+        // Facebook / Meta
+        "connect.facebook.net", "facebook.net", "fbcdn.net",
+        "pixel.facebook.com",
+        // IAB vendor networks (RTB / programmatic)
+        "criteo.com", "criteo.net",
+        "adnxs.com",                    // AppNexus / Xandr
+        "rubiconproject.com",           // Magnite
+        "pubmatic.com",
+        "openx.net",
+        "casalemedia.com",              // Index Exchange
+        "indexexchange.com",
+        "33across.com",
+        "bidswitch.net",
+        "sovrn.com", "lijit.com",
+        "contextweb.com",               // PulsePoint
+        "rhythmone.com",
+        "smartadserver.com",
+        "teads.tv", "teads.com",
+        "outbrain.com",
+        "taboola.com",
+        "advertising.com",              // Oath/Verizon Media
+        "adtech.de",
+        "yieldmanager.com",
+        "adadvisor.net",
+        "adgrx.com",
+        "adscale.de",
+        // Consent management platforms (IAB CMP)
+        "quantcast.com", "quantcast.mgr.consensu.org",
+        "consensu.org",
+        "onetrust.com", "cookielaw.org",
+        "trustarc.com",
+        "sourcepoint.com",
+        "didomi.io",
+        "usercentrics.eu",
+        // Analytics / tracking SDKs
+        "scorecardresearch.com",
+        "quantserve.com",
+        "hotjar.com",
+        "segment.com", "segment.io",
+        "cdn.segment.com",
+        "mixpanel.com",
+        "amplitude.com",
+        "heap.io",
+        "fullstory.com",
+        // Marketing automation
+        "braze.com", "appboy.com",
+        "adjust.com", "adjust.io",
+        "appsflyer.com",
+        "branch.io",
+        "localytics.com",
+        "moengage.com",
+        "klaviyo.com",
+        "mailchimp.com",
+        // Ad quality / brand safety
+        "moatads.com",
+        "adsafeprotected.com",
+        "doubleverify.com",
+        "adloox.com",
+        "jads.co",
+        // Social retargeting pixels
+        "bat.bing.com",
+        "analytics.twitter.com",
+        "static.ads-twitter.com",
+        "snap.licdn.com",
+        "px.ads.linkedin.com",
+        "analytics.tiktok.com",
+        "sc-static.net",               // Snapchat
+        "tr.snapchat.com",
+        "ads.pinterest.com",
+        "ct.pinterest.com",
+        // Device fingerprinting
+        "botd.fpjs.io",
+        "api.fpjs.io",
+        "fp.iesnare.com",
+        "mpsnare.iesnare.com",
+        "iovation.com",
+        "threatmetrix.com",
+        "siftscience.com",
+        // Retargeting / audience
+        "rtd.mxptint.net",
+        "adhigh.net",
+        "adform.net",
+        "nextroll.com",
+        "perfectaudience.com",
+        "adroll.com",
+    };
+
     WebView webView;
     SharedPreferences prefs;
 
@@ -40,6 +139,7 @@ public class MainActivity extends Activity {
     private String autocopDetectorJs;
     private String vintedCheckoutJs;
     private String autocopInjectedCss;
+    private String privacyShieldJs;
 
     @SuppressLint({"SetJavaScriptEnabled", "AddJavascriptInterface"})
     @Override
@@ -53,6 +153,7 @@ public class MainActivity extends Activity {
         autocopDetectorJs  = loadAsset("autocop-detector.js");
         vintedCheckoutJs   = loadAsset("vinted-checkout.js");
         autocopInjectedCss = loadAsset("autocop-injected.css");
+        privacyShieldJs    = buildPrivacyShieldJs();
 
         RelativeLayout root = new RelativeLayout(this);
         root.setBackgroundColor(Color.parseColor("#0f1117"));
@@ -77,7 +178,7 @@ public class MainActivity extends Activity {
         int fabSizePx = dp(52);
         int fabMarginPx = dp(16);
         final TextView fab = new TextView(this);
-        fab.setText("⚙");
+        fab.setText("S");
         fab.setTextSize(22);
         fab.setTextColor(Color.WHITE);
         fab.setGravity(android.view.Gravity.CENTER);
@@ -115,13 +216,15 @@ public class MainActivity extends Activity {
         ws.setMediaPlaybackRequiresUserGesture(false);
         ws.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
         ws.setCacheMode(WebSettings.LOAD_DEFAULT);
+        // Block third-party cookies from trackers
         ws.setUserAgentString(
             "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 " +
             "(KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36"
         );
 
         CookieManager.getInstance().setAcceptCookie(true);
-        CookieManager.getInstance().setAcceptThirdPartyCookies(webView, true);
+        // Disable third-party cookies — trackers can't set cookies from blocked domains
+        CookieManager.getInstance().setAcceptThirdPartyCookies(webView, false);
 
         CheckoutBridge bridge = new CheckoutBridge(this);
         webView.addJavascriptInterface(bridge, "__QCBridge");
@@ -150,6 +253,18 @@ public class MainActivity extends Activity {
             public boolean shouldOverrideUrlLoading(WebView v, String url) {
                 return false;
             }
+
+            // ── Network-level IAB / tracker blocking ──────────────────────────
+            @Override
+            public WebResourceResponse shouldInterceptRequest(WebView view,
+                    WebResourceRequest request) {
+                String host = request.getUrl().getHost();
+                if (host != null && isBlockedDomain(host.toLowerCase())) {
+                    Log.d(TAG, "Blocked tracker: " + host);
+                    return emptyResponse();
+                }
+                return null;
+            }
         });
 
         boolean firstLaunch = prefs.getBoolean(KEY_FIRST_LAUNCH, true);
@@ -166,6 +281,25 @@ public class MainActivity extends Activity {
         webView.loadUrl(AUTOCOP_URL);
     }
 
+    // ── Domain blocking ───────────────────────────────────────────────────────
+
+    private boolean isBlockedDomain(String host) {
+        for (String blocked : BLOCKED_DOMAINS) {
+            if (host.equals(blocked) || host.endsWith("." + blocked)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private WebResourceResponse emptyResponse() {
+        return new WebResourceResponse(
+            "text/plain", "UTF-8",
+            new ByteArrayInputStream(new byte[0]));
+    }
+
+    // ── Page injection ────────────────────────────────────────────────────────
+
     void injectIntoPage(String url) {
         if (url == null || url.startsWith("about:") || url.startsWith("data:")) return;
 
@@ -175,6 +309,9 @@ public class MainActivity extends Activity {
         if (isVinted) {
             extractAndSaveVintedToken(url);
         }
+
+        // Inject privacy shield on all pages (denies TCF consent, removes fingerprint APIs)
+        webView.evaluateJavascript(privacyShieldJs, null);
 
         if (isAutocop && autocopDetectorJs != null) {
             injectCss(autocopInjectedCss);
@@ -188,43 +325,144 @@ public class MainActivity extends Activity {
         }
     }
 
+    // ── Privacy shield JS — denies IAB TCF, removes fingerprint APIs ──────────
+
+    private String buildPrivacyShieldJs() {
+        return "(function(){" +
+            "if(window.__qcPrivacyShield)return;" +
+            "window.__qcPrivacyShield=true;" +
+
+            // Override IAB TCF API — deny all purposes and vendors
+            "var _denyAll={" +
+            "  gdprApplies:true," +
+            "  cmpId:0,cmpVersion:0," +
+            "  tcString:''," +
+            "  isServiceSpecific:false," +
+            "  useNonStandardStacks:false," +
+            "  purposeOneTreatment:false," +
+            "  publisherCC:'FR'," +
+            "  eventStatus:'tcloaded'," +
+            "  cmpStatus:'loaded'," +
+            "  listenerId:0," +
+            "  purpose:{consents:{},legitimateInterests:{}}," +
+            "  vendor:{consents:{},legitimateInterests:{}}," +
+            "  specialFeatureOptins:{}," +
+            "  publisher:{consents:{},legitimateInterests:{}," +
+            "    customPurpose:{consents:{},legitimateInterests:{}}," +
+            "    restrictions:{}}" +
+            "};" +
+            "window.__tcfapi=function(cmd,v,cb,param){" +
+            "  if(typeof cb==='function')cb(Object.assign({},_denyAll),true);" +
+            "};" +
+
+            // Clear IAB consent localStorage keys
+            "try{" +
+            "  var keys=['euconsent-v2','CookieConsent','consent_string','gdpr_consent'," +
+            "    '__cmp','_sp_v1_consent','_sp_v1_seen_notice','eupubconsent'," +
+            "    'cmapi_gtm_bl','cmapi_cookie_privacy'];" +
+            "  keys.forEach(function(k){try{localStorage.removeItem(k);}catch(e){}});" +
+            "}catch(e){}" +
+
+            // Delete known tracking/consent cookies via document.cookie (JS-accessible ones)
+            "try{" +
+            "  var trackCookies=['_ga','_gid','_gat','_gcl_au','_gcl_aw','_fbp','_fbc'," +
+            "    'fr','datr','sb','wd','xs','c_user','_pinterest_sess','muc_ads'," +
+            "    'euconsent-v2','CookieConsent','OptanonConsent','OptanonAlertBoxClosed'];" +
+            "  trackCookies.forEach(function(name){" +
+            "    document.cookie=name+'=; Max-Age=0; Path=/; Domain='+location.hostname;" +
+            "    document.cookie=name+'=; Max-Age=0; Path=/; Domain=.'+location.hostname;" +
+            "  });" +
+            "}catch(e){}" +
+
+            "})();";
+    }
+
+    // ── Full cookie + storage clearing ───────────────────────────────────────
+
     void clearVintedCookies() {
         try {
             CookieManager cm = CookieManager.getInstance();
-            // Clear cookies for all Vinted domains
+
+            // All Vinted domains + subdomains
             String[] vintedDomains = {
-                "https://www.vinted.fr", "https://www.vinted.be", "https://www.vinted.es",
-                "https://www.vinted.de", "https://www.vinted.it", "https://www.vinted.co.uk",
-                "https://www.vinted.nl", "https://www.vinted.pl", "https://www.vinted.pt",
-                "https://www.vinted.com"
+                "https://www.vinted.fr",    "https://vinted.fr",
+                "https://www.vinted.be",    "https://vinted.be",
+                "https://www.vinted.es",    "https://vinted.es",
+                "https://www.vinted.de",    "https://vinted.de",
+                "https://www.vinted.it",    "https://vinted.it",
+                "https://www.vinted.co.uk", "https://vinted.co.uk",
+                "https://www.vinted.nl",    "https://vinted.nl",
+                "https://www.vinted.pl",    "https://vinted.pl",
+                "https://www.vinted.pt",    "https://vinted.pt",
+                "https://www.vinted.com",   "https://vinted.com",
             };
-            for (String domain : vintedDomains) {
-                String cookies = cm.getCookie(domain);
-                if (cookies == null) continue;
-                for (String part : cookies.split(";")) {
-                    String name = part.trim().split("=")[0];
-                    if (!name.isEmpty()) {
-                        cm.setCookie(domain, name + "=; Max-Age=0; Path=/");
+
+            // Identity & device cookies to explicitly expire first
+            String[] identityCookies = {
+                "access_token_web", "refresh_token_web",
+                "user_id", "_vinted_fr_session", "_vinted_session",
+                "anon_id", "device_id", "remember_user_token",
+                "access_token", "refresh_token",
+                "visitor_id", "country_code",
+                // Tracking cookies Vinted uses
+                "_ga", "_gid", "_gcl_au", "_fbp", "_fbc",
+                "euconsent-v2", "OptanonConsent", "CookieConsent",
+            };
+
+            for (String domainUrl : vintedDomains) {
+                // Expire each known identity/device cookie explicitly
+                for (String name : identityCookies) {
+                    cm.setCookie(domainUrl, name + "=; Max-Age=0; Path=/; SameSite=None; Secure");
+                }
+                // Also expire everything the CookieManager knows about this domain
+                String allCookies = cm.getCookie(domainUrl);
+                if (allCookies != null) {
+                    for (String part : allCookies.split(";")) {
+                        String name = part.trim().split("=")[0].trim();
+                        if (!name.isEmpty()) {
+                            cm.setCookie(domainUrl, name + "=; Max-Age=0; Path=/");
+                        }
                     }
                 }
             }
+
+            // Nuclear option: remove ALL cookies from the WebView store
             cm.removeAllCookies(null);
             cm.flush();
-            // Clear stored token too
+
+            // Clear WebStorage (localStorage / sessionStorage / IndexedDB)
+            WebStorage.getInstance().deleteAllData();
+
+            // Clear WebView cache, history, and form data
+            if (webView != null) {
+                webView.clearCache(true);
+                webView.clearHistory();
+                webView.clearFormData();
+            }
+
+            // Clear stored token
             prefs.edit().remove("qc_token").apply();
-            Log.i(TAG, "Vinted cookies cleared");
+
+            Log.i(TAG, "Full Vinted session cleared (cookies + storage + cache)");
         } catch (Exception e) {
             Log.e(TAG, "clearVintedCookies error", e);
         }
     }
 
+    // ── Token extraction from Vinted cookies ─────────────────────────────────
+
     void extractAndSaveVintedToken(String url) {
         try {
             String domain = "https://www.vinted.fr";
-            if (url.contains("vinted.be"))     domain = "https://www.vinted.be";
-            else if (url.contains("vinted.es")) domain = "https://www.vinted.es";
-            else if (url.contains("vinted.de")) domain = "https://www.vinted.de";
-            else if (url.contains("vinted.co.uk")) domain = "https://www.vinted.co.uk";
+            if      (url.contains("vinted.be"))     domain = "https://www.vinted.be";
+            else if (url.contains("vinted.es"))      domain = "https://www.vinted.es";
+            else if (url.contains("vinted.de"))      domain = "https://www.vinted.de";
+            else if (url.contains("vinted.it"))      domain = "https://www.vinted.it";
+            else if (url.contains("vinted.co.uk"))   domain = "https://www.vinted.co.uk";
+            else if (url.contains("vinted.nl"))      domain = "https://www.vinted.nl";
+            else if (url.contains("vinted.pl"))      domain = "https://www.vinted.pl";
+            else if (url.contains("vinted.pt"))      domain = "https://www.vinted.pt";
+            else if (url.contains("vinted.com"))     domain = "https://www.vinted.com";
 
             String cookies = CookieManager.getInstance().getCookie(domain);
             if (cookies == null) return;
@@ -251,6 +489,8 @@ public class MainActivity extends Activity {
         }
     }
 
+    // ── CSS injection ─────────────────────────────────────────────────────────
+
     private void injectCss(String css) {
         if (css == null) return;
         String escaped = css
@@ -267,6 +507,8 @@ public class MainActivity extends Activity {
             "  (document.head||document.documentElement).appendChild(s);" +
             "})();", null);
     }
+
+    // ── Bridge patch: polyfill chrome.runtime + chrome.storage ───────────────
 
     private String buildBridgePatch(boolean withRuntime) {
         String storage =
