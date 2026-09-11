@@ -10,6 +10,10 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.util.Iterator;
 
 /**
@@ -17,28 +21,17 @@ import java.util.Iterator;
  *
  * Replaces chrome.runtime.sendMessage + chrome.storage.local so the injected
  * content scripts work without the Chrome Extension API.
- *
- * Storage design:
- *   - Everything stored as strings in SharedPreferences ("qc_storage")
- *   - Booleans → "true" / "false"
- *   - JSON objects/arrays → their toString() representation
- *   - Parsed back to proper JS types in storageGet (object → JSONObject, bool → boolean, etc.)
- *
- * Config (domain, token) lives in a separate "qc_prefs" file to keep
- * extension-storage separate from app settings.
- *
- * All @JavascriptInterface methods run on a background thread — UI operations
- * must be posted via activity.runOnUiThread().
  */
 public class CheckoutBridge {
 
     private static final String TAG          = "QC-Bridge";
     private static final String PREFS_STORE  = "qc_storage";
+    private static final int    API_TIMEOUT  = 4000; // ms
 
     private final MainActivity        activity;
     private final WebView             webView;
-    private final SharedPreferences   prefs;    // app config: domain, token, first_launch
-    private final SharedPreferences   store;    // chrome.storage.local equivalent
+    private final SharedPreferences   prefs;
+    private final SharedPreferences   store;
 
     public CheckoutBridge(MainActivity activity) {
         this.activity = activity;
@@ -71,7 +64,7 @@ public class CheckoutBridge {
         }
     }
 
-    // ── QUICK_CHECKOUT handler ────────────────────────────────────────────────
+    // ── QUICK_CHECKOUT ────────────────────────────────────────────────────────
 
     private String handleCheckout(JSONObject msg) throws JSONException {
         JSONObject listing = msg.optJSONObject("listing");
@@ -83,8 +76,39 @@ public class CheckoutBridge {
         long    t0      = msg.optLong("t0", System.currentTimeMillis());
         boolean autobuy = "true".equals(store.getString("qc_autobuy", "false"));
         String  domain  = prefs.getString("qc_vinted_domain", "www.vinted.fr");
+        String  token   = prefs.getString("qc_token", "");
 
-        // Persist pending checkout so vinted-checkout.js can read it after navigation
+        // Optional fast API pre-check (non-blocking the navigation)
+        // We fire-and-forget: navigate immediately, let JS handle if item gone
+        boolean doPrecheck = !token.isEmpty();
+        if (doPrecheck) {
+            final String fItemId = itemId;
+            final String fDomain = domain;
+            final String fToken  = token;
+            new Thread(new Runnable() {
+                @Override
+                public void run() {
+                    try {
+                        boolean available = apiCheckItem(fDomain, fItemId, fToken);
+                        if (!available) {
+                            Log.i(TAG, "Item " + fItemId + " not available per API pre-check");
+                            activity.runOnUiThread(new Runnable() {
+                                @Override
+                                public void run() {
+                                    android.widget.Toast.makeText(activity,
+                                        "Article deja vendu ou indisponible",
+                                        android.widget.Toast.LENGTH_SHORT).show();
+                                }
+                            });
+                        }
+                    } catch (Exception e) {
+                        Log.d(TAG, "API pre-check skipped: " + e.getMessage());
+                    }
+                }
+            }).start();
+        }
+
+        // Persist pending checkout
         JSONObject pending = new JSONObject();
         pending.put("itemId",  itemId);
         pending.put("ts",      t0);
@@ -93,9 +117,8 @@ public class CheckoutBridge {
         storeWrite("qc_autobuy",          String.valueOf(autobuy));
 
         String vintedUrl = "https://" + domain + "/items/" + itemId;
-        Log.i(TAG, "Checkout → " + vintedUrl + "  autobuy=" + autobuy);
+        Log.i(TAG, "Checkout -> " + vintedUrl + "  autobuy=" + autobuy);
 
-        // Navigate on the UI thread
         final String finalUrl = vintedUrl;
         activity.runOnUiThread(new Runnable() {
             @Override
@@ -106,6 +129,53 @@ public class CheckoutBridge {
 
         long elapsed = System.currentTimeMillis() - t0;
         return "{\"ok\":true,\"metrics\":{\"t4_total_ms\":" + elapsed + "}}";
+    }
+
+    /**
+     * Quick Vinted API check to see if an item is still for sale.
+     * Returns true if available (or unknown), false if confirmed sold.
+     */
+    private boolean apiCheckItem(String domain, String itemId, String token) {
+        HttpURLConnection conn = null;
+        try {
+            URL url = new URL("https://" + domain + "/api/v2/items/" + itemId);
+            conn = (HttpURLConnection) url.openConnection();
+            conn.setRequestMethod("GET");
+            conn.setConnectTimeout(API_TIMEOUT);
+            conn.setReadTimeout(API_TIMEOUT);
+            conn.setRequestProperty("Authorization", "Bearer " + token);
+            conn.setRequestProperty("Accept", "application/json");
+            conn.setRequestProperty("User-Agent",
+                "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 " +
+                "(KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36");
+
+            int code = conn.getResponseCode();
+            if (code == 404) return false; // definitely gone
+            if (code != 200) return true;  // assume available on other errors
+
+            BufferedReader br = new BufferedReader(
+                new InputStreamReader(conn.getInputStream(), "UTF-8"));
+            StringBuilder sb = new StringBuilder();
+            String line;
+            while ((line = br.readLine()) != null) sb.append(line);
+            br.close();
+
+            JSONObject resp = new JSONObject(sb.toString());
+            JSONObject item = resp.optJSONObject("item");
+            if (item == null) item = resp.optJSONObject("data");
+            if (item == null) return true;
+
+            boolean canBeSold = item.optBoolean("can_be_sold", true);
+            boolean isForSale = item.optBoolean("is_for_sale", true);
+            String  status    = item.optString("status", "");
+            return canBeSold && isForSale && !status.equals("sold");
+
+        } catch (Exception e) {
+            Log.d(TAG, "apiCheckItem: " + e.getMessage());
+            return true; // network error → assume available
+        } finally {
+            if (conn != null) conn.disconnect();
+        }
     }
 
     private void logMetrics(JSONObject msg) {
@@ -121,7 +191,7 @@ public class CheckoutBridge {
         }
     }
 
-    // ── GET_CONFIG — called by JS when it needs app settings ─────────────────
+    // ── GET_CONFIG ────────────────────────────────────────────────────────────
 
     @JavascriptInterface
     public String buildConfig() {
@@ -130,7 +200,7 @@ public class CheckoutBridge {
             cfg.put("autobuy",  "true".equals(store.getString("qc_autobuy", "false")));
             cfg.put("domain",   prefs.getString("qc_vinted_domain", "www.vinted.fr"));
             cfg.put("hasToken", !prefs.getString("qc_token", "").isEmpty());
-            cfg.put("version",  "1.3.0");
+            cfg.put("version",  "1.4.0");
             return cfg.toString();
         } catch (JSONException e) {
             return "{\"ok\":false}";
@@ -138,14 +208,6 @@ public class CheckoutBridge {
     }
 
     // ── chrome.storage.local.get ──────────────────────────────────────────────
-    //
-    // Input: JSON.stringify of either
-    //   - an array  ["key1","key2"]
-    //   - an object {"key1":default1}
-    //   - a single quoted key  "keyName"
-    //
-    // Output: JSON object {"key1": value1, ...}
-    //   Values are typed: booleans as boolean, numbers as number, objects as object.
 
     @JavascriptInterface
     public String storageGet(String keysJson) {
@@ -165,8 +227,12 @@ public class CheckoutBridge {
                     readKey(result, it.next());
                 }
             } else {
-                // Single string key, possibly JSON-quoted ("keyName" or keyName)
                 readKey(result, trimmed.replaceAll("^\"|\"$", ""));
+            }
+            // Also expose token for content scripts
+            if (trimmed.contains("qc_token") || trimmed.equals("\"qc_token\"")) {
+                String tok = prefs.getString("qc_token", "");
+                if (!tok.isEmpty()) result.put("qc_token", tok);
             }
             return result.toString();
         } catch (JSONException e) {
@@ -175,27 +241,31 @@ public class CheckoutBridge {
         }
     }
 
-    /** Reads one key from SharedPreferences and puts it (with proper type) into out. */
     private void readKey(JSONObject out, String key) throws JSONException {
-        String raw = store.getString(key, null);
-        if (raw == null) return;  // key not present → omit (JS code uses ?? defaults)
+        // Token lives in prefs, not store
+        if ("qc_token".equals(key)) {
+            String tok = prefs.getString("qc_token", "");
+            if (!tok.isEmpty()) out.put(key, tok);
+            return;
+        }
+        if ("qc_vinted_domain".equals(key)) {
+            out.put(key, prefs.getString("qc_vinted_domain", "www.vinted.fr"));
+            return;
+        }
 
-        // JSON object
+        String raw = store.getString(key, null);
+        if (raw == null) return;
+
         if (raw.startsWith("{")) {
             try { out.put(key, new JSONObject(raw)); return; } catch (JSONException ignored) {}
         }
-        // JSON array
         if (raw.startsWith("[")) {
             try { out.put(key, new JSONArray(raw)); return; } catch (JSONException ignored) {}
         }
-        // Boolean
         if ("true".equals(raw))  { out.put(key, true);  return; }
         if ("false".equals(raw)) { out.put(key, false); return; }
-        // Integer
         try { out.put(key, Long.parseLong(raw)); return; } catch (NumberFormatException ignored) {}
-        // Float
         try { out.put(key, Double.parseDouble(raw)); return; } catch (NumberFormatException ignored) {}
-        // Plain string
         out.put(key, raw);
     }
 
@@ -204,7 +274,7 @@ public class CheckoutBridge {
     @JavascriptInterface
     public void storageSet(String valuesJson) {
         try {
-            JSONObject            obj    = new JSONObject(valuesJson);
+            JSONObject obj = new JSONObject(valuesJson);
             SharedPreferences.Editor ed = store.edit();
             for (Iterator<String> it = obj.keys(); it.hasNext(); ) {
                 String k = it.next();
@@ -214,7 +284,6 @@ public class CheckoutBridge {
                 } else if (v instanceof JSONObject || v instanceof JSONArray) {
                     ed.putString(k, v.toString());
                 } else {
-                    // Booleans, numbers, strings → store as their string representation
                     ed.putString(k, String.valueOf(v));
                 }
             }
@@ -243,7 +312,7 @@ public class CheckoutBridge {
         }
     }
 
-    // ── Convenience methods callable from SettingsDialog ─────────────────────
+    // ── Convenience methods ───────────────────────────────────────────────────
 
     void setAutobuy(boolean enabled) {
         storeWrite("qc_autobuy", String.valueOf(enabled));
@@ -282,8 +351,6 @@ public class CheckoutBridge {
         if (t.length() <= 12) return t.substring(0, 3) + "****" + t.substring(t.length() - 2);
         return t.substring(0, 6) + "****" + t.substring(t.length() - 4);
     }
-
-    // ── Internal helpers ──────────────────────────────────────────────────────
 
     private void storeWrite(String key, String value) {
         store.edit().putString(key, value).apply();
