@@ -86,9 +86,10 @@ public class SettingsDialog {
 
         // Token
         root.addView(divider(ctx));
-        root.addView(sectionTitle(ctx, "Token Vinted (optionnel)"));
+        root.addView(sectionTitle(ctx, "Token Vinted"));
         root.addView(hint(ctx,
-            "Bearer token de l'API Vinted. Laissez vide pour desactiver."));
+            "Recupere automatiquement depuis votre session Vinted. " +
+            "Connectez-vous d'abord via le bouton ci-dessous, puis revenez ici."));
 
         LinearLayout tokenRow = row(ctx);
         final EditText tokenField = new EditText(ctx);
@@ -120,6 +121,32 @@ public class SettingsDialog {
         tokenRow.addView(eyeBtn);
         root.addView(tokenRow, wrapParams(ctx, 0, 8, 0, 4));
 
+        // Auto-fetch token button
+        Button fetchTokenBtn = new Button(ctx);
+        fetchTokenBtn.setText("Recuperer le token depuis Vinted");
+        fetchTokenBtn.setTextColor(Color.WHITE);
+        fetchTokenBtn.setBackgroundColor(Color.parseColor("#2D6A4F"));
+        root.addView(fetchTokenBtn, wrapParams(ctx, 0, 6, 0, 4));
+
+        final TextView tokenStatus = hint(ctx, "");
+        root.addView(tokenStatus, wrapParams(ctx, 0, 0, 0, 8));
+
+        fetchTokenBtn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                activity.extractAndSaveVintedToken("https://www.vinted.fr/items");
+                String tok = bridge.getToken();
+                if (!tok.isEmpty()) {
+                    tokenField.setText(tok);
+                    tokenStatus.setText("Token recupere avec succes !");
+                    tokenStatus.setTextColor(Color.parseColor("#52B788"));
+                } else {
+                    tokenStatus.setText("Pas de token trouve. Connectez-vous d'abord a Vinted.");
+                    tokenStatus.setTextColor(Color.parseColor("#FFC107"));
+                }
+            }
+        });
+
         final TextView clearBtn = new TextView(ctx);
         clearBtn.setText("Effacer le token");
         clearBtn.setTextColor(Color.parseColor("#FF5555"));
@@ -131,6 +158,7 @@ public class SettingsDialog {
             public void onClick(View v) {
                 tokenField.setText("");
                 clearBtn.setVisibility(View.GONE);
+                tokenStatus.setText("");
             }
         });
         root.addView(clearBtn, wrapParams(ctx, 0, 0, 0, 16));

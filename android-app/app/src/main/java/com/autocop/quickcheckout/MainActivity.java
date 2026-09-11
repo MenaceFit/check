@@ -172,6 +172,10 @@ public class MainActivity extends Activity {
         boolean isAutocop = url.contains("autocop.app");
         boolean isVinted  = !isAutocop && url.contains("vinted.");
 
+        if (isVinted) {
+            extractAndSaveVintedToken(url);
+        }
+
         if (isAutocop && autocopDetectorJs != null) {
             injectCss(autocopInjectedCss);
             webView.evaluateJavascript(buildBridgePatch(true), null);
@@ -181,6 +185,39 @@ public class MainActivity extends Activity {
         if (isVinted && vintedCheckoutJs != null) {
             webView.evaluateJavascript(buildBridgePatch(false), null);
             webView.evaluateJavascript(vintedCheckoutJs, null);
+        }
+    }
+
+    void extractAndSaveVintedToken(String url) {
+        try {
+            String domain = "https://www.vinted.fr";
+            if (url.contains("vinted.be"))     domain = "https://www.vinted.be";
+            else if (url.contains("vinted.es")) domain = "https://www.vinted.es";
+            else if (url.contains("vinted.de")) domain = "https://www.vinted.de";
+            else if (url.contains("vinted.co.uk")) domain = "https://www.vinted.co.uk";
+
+            String cookies = CookieManager.getInstance().getCookie(domain);
+            if (cookies == null) return;
+
+            for (String part : cookies.split(";")) {
+                String trimmed = part.trim();
+                if (trimmed.startsWith("access_token_web=")) {
+                    String token = trimmed.substring("access_token_web=".length()).trim();
+                    if (!token.isEmpty()) {
+                        String existing = prefs.getString("qc_token", "");
+                        if (!token.equals(existing)) {
+                            prefs.edit().putString("qc_token", token).apply();
+                            Log.i(TAG, "Token Vinted mis a jour automatiquement");
+                            android.widget.Toast.makeText(this,
+                                "Token Vinted mis a jour automatiquement",
+                                android.widget.Toast.LENGTH_SHORT).show();
+                        }
+                    }
+                    break;
+                }
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "extractAndSaveVintedToken error", e);
         }
     }
 
