@@ -1,0 +1,259 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>LBC Sniper</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎯</text></svg>">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <!-- Connexion -->
+  <div id="login" class="login hidden">
+    <form id="login-form" class="card login-card">
+      <div class="brand big">🎯 LBC <span>Sniper</span></div>
+      <p class="muted">Entrez le mot de passe du dashboard.</p>
+      <input id="login-password" type="password" placeholder="Mot de passe" autocomplete="current-password" required>
+      <button class="btn primary" type="submit">Se connecter</button>
+      <p id="login-error" class="error"></p>
+    </form>
+  </div>
+
+  <div id="app" class="layout hidden">
+    <aside class="sidebar">
+      <div class="brand">🎯 LBC <span>Sniper</span></div>
+      <nav>
+        <a href="#dashboard" data-tab="dashboard">📊 Tableau de bord</a>
+        <a href="#searches" data-tab="searches">🔎 Recherches</a>
+        <a href="#ads" data-tab="ads">🛒 Annonces</a>
+        <a href="#logs" data-tab="logs">📜 Journal</a>
+        <a href="#settings" data-tab="settings">⚙️ Paramètres</a>
+      </nav>
+      <div class="sidebar-foot">
+        <div id="engine-pill" class="pill">…</div>
+        <div id="bot-pill" class="pill">…</div>
+        <div id="live-pill" class="pill">…</div>
+        <button id="logout" class="btn ghost small hidden">Se déconnecter</button>
+      </div>
+    </aside>
+
+    <main>
+      <!-- Tableau de bord -->
+      <section id="tab-dashboard" class="tab">
+        <header class="page-head">
+          <h1>Tableau de bord</h1>
+          <div class="actions">
+            <button id="pause-all" class="btn">⏸️ Tout mettre en pause</button>
+            <button class="btn primary" data-action="new-search">＋ Nouvelle recherche</button>
+          </div>
+        </header>
+        <div id="stats" class="stats"></div>
+        <div class="grid-2">
+          <div class="card">
+            <div class="card-head"><h2>⚡ Flux en direct</h2><span class="muted small">les nouvelles annonces apparaissent ici instantanément</span></div>
+            <div id="live-feed" class="feed"></div>
+          </div>
+          <div class="card">
+            <div class="card-head"><h2>🔎 Recherches</h2></div>
+            <div id="watchers" class="watchers"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Recherches -->
+      <section id="tab-searches" class="tab hidden">
+        <header class="page-head">
+          <h1>Recherches</h1>
+          <div class="actions">
+            <button class="btn primary" data-action="new-search">＋ Nouvelle recherche</button>
+          </div>
+        </header>
+        <div id="search-list" class="search-list"></div>
+      </section>
+
+      <!-- Annonces -->
+      <section id="tab-ads" class="tab hidden">
+        <header class="page-head">
+          <h1>Annonces trouvées</h1>
+          <div class="actions">
+            <select id="ads-filter-search"><option value="">Toutes les recherches</option></select>
+            <label class="check"><input type="checkbox" id="ads-only-notified"> Seulement envoyées sur Discord</label>
+            <button id="ads-refresh" class="btn">↻</button>
+          </div>
+        </header>
+        <div id="ads-grid" class="ads-grid"></div>
+      </section>
+
+      <!-- Journal -->
+      <section id="tab-logs" class="tab hidden">
+        <header class="page-head"><h1>Journal</h1></header>
+        <div class="card"><div id="log-list" class="log-list"></div></div>
+      </section>
+
+      <!-- Paramètres -->
+      <section id="tab-settings" class="tab hidden">
+        <header class="page-head"><h1>Paramètres</h1></header>
+        <div class="grid-2">
+          <form id="settings-form" class="card form">
+            <h2>Général</h2>
+            <label>Salon Discord par défaut
+              <div class="row">
+                <select id="set-default-channel-select" class="channel-select"></select>
+                <input id="set-default-channel" name="default_channel_id" placeholder="ID du salon">
+              </div>
+              <small>Utilisé par les recherches qui n'ont pas de salon propre.</small>
+            </label>
+            <label>Webhook Discord par défaut <input name="default_webhook_url" placeholder="https://discord.com/api/webhooks/..."></label>
+            <label>Salon / webhook pour les alertes techniques
+              <input name="alert_channel_id" placeholder="ID de salon ou URL de webhook">
+              <small>Prévenu si une recherche échoue plusieurs fois (blocage Leboncoin, etc.).</small>
+            </label>
+            <label>Source des données
+              <select name="source_mode">
+                <option value="auto">Automatique (API, puis page web en secours)</option>
+                <option value="api">API JSON uniquement (le plus rapide)</option>
+                <option value="html">Page web uniquement</option>
+              </select>
+            </label>
+            <label>Annonces conservées dans l'historique <input name="keep_ads" type="number" min="100" step="100"></label>
+            <button class="btn primary" type="submit">Enregistrer</button>
+          </form>
+          <div class="card">
+            <h2>Bot Discord</h2>
+            <div id="bot-info"></div>
+            <h2 class="mt">Sauvegarde</h2>
+            <p class="muted">Exportez vos recherches pour les sauvegarder ou les copier sur une autre machine.</p>
+            <div class="row">
+              <a class="btn" href="/api/export">⬇️ Exporter</a>
+              <label class="btn">⬆️ Importer<input id="import-file" type="file" accept="application/json" hidden></label>
+            </div>
+            <h2 class="mt">Limites</h2>
+            <div id="limits" class="muted"></div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Éditeur de recherche -->
+  <div id="editor" class="modal hidden">
+    <div class="modal-box">
+      <header class="modal-head">
+        <h2 id="editor-title">Nouvelle recherche</h2>
+        <button class="btn ghost" data-close>✕</button>
+      </header>
+      <form id="editor-form" class="form modal-body">
+        <div class="import-box">
+          <label>⚡ Le plus rapide : faites votre recherche sur leboncoin.fr, copiez l'URL et collez-la ici
+            <div class="row">
+              <input id="import-url" placeholder="https://www.leboncoin.fr/recherche?category=15&text=rtx%203070&price=400-700">
+              <button type="button" class="btn primary" id="import-url-btn">Importer</button>
+            </div>
+          </label>
+        </div>
+
+        <fieldset>
+          <legend>Général</legend>
+          <div class="cols-3">
+            <label class="span-2">Nom <input name="name" required></label>
+            <label>Intervalle (secondes) <input name="interval_seconds" type="number" min="5" required>
+              <small id="interval-hint"></small></label>
+          </div>
+          <div class="row wrap">
+            <label class="check"><input type="checkbox" name="enabled"> Active</label>
+            <label class="check"><input type="checkbox" name="notify_existing_on_start"> Envoyer aussi les annonces déjà en ligne au 1er passage</label>
+          </div>
+        </fieldset>
+
+        <fieldset>
+          <legend>Critères Leboncoin</legend>
+          <div class="cols-3">
+            <label class="span-2">Mots-clés <input name="keywords" placeholder="ex : rtx 3070"></label>
+            <label>Catégorie (ID) <input name="category" placeholder="ex : 15 = Ordinateurs"></label>
+          </div>
+          <div class="cols-3">
+            <label>Prix min (€) <input name="price_min" type="number" min="0"></label>
+            <label>Prix max (€) <input name="price_max" type="number" min="0"></label>
+            <label>Vendeur
+              <select name="owner_type">
+                <option value="all">Tous</option>
+                <option value="private">Particuliers</option>
+                <option value="pro">Professionnels</option>
+              </select>
+            </label>
+          </div>
+          <div class="row wrap">
+            <label class="check"><input type="checkbox" name="title_only"> Chercher dans le titre uniquement</label>
+            <label class="check"><input type="checkbox" name="shippable_only"> Livraison possible uniquement</label>
+          </div>
+          <div class="sub-head"><span>📍 Localisations</span><button type="button" class="btn small" id="add-location">＋ Ajouter</button></div>
+          <div id="locations" class="rows"></div>
+          <small class="muted">Sans localisation = toute la France. Astuce : importer une URL remplit automatiquement les coordonnées.</small>
+
+          <div class="sub-head"><span>🧩 Champs personnalisés (tout filtre Leboncoin)</span><button type="button" class="btn small" id="add-extra">＋ Ajouter</button></div>
+          <div id="extras" class="rows"></div>
+          <small class="muted">Ex. : <code>mileage</code> plage 0–100000, <code>regdate</code> plage 2015–2024, <code>fuel</code> valeurs <code>1,2</code>, <code>item_condition</code>… Importer une URL les remplit tout seul.</small>
+        </fieldset>
+
+        <fieldset>
+          <legend>Filtres supplémentaires (appliqués par le bot)</legend>
+          <div class="cols-2">
+            <label>Mots exclus (séparés par des virgules)
+              <textarea name="exclude_words" rows="2" placeholder="hs, pour pièces, cassé, échange"></textarea></label>
+            <label>Mots obligatoires
+              <textarea name="required_words" rows="2" placeholder="rtx, 3070"></textarea>
+              <select name="required_mode">
+                <option value="any">Au moins un de ces mots</option>
+                <option value="all">Tous ces mots</option>
+              </select>
+            </label>
+          </div>
+          <label>Âge maximum de l'annonce (minutes)
+            <input name="max_age_minutes" type="number" min="1" placeholder="ex : 60 (ignore les annonces « remontées »)"></label>
+        </fieldset>
+
+        <fieldset>
+          <legend>Discord</legend>
+          <div class="cols-2">
+            <label>Salon (via le bot)
+              <div class="row">
+                <select id="channel-select" class="channel-select"></select>
+                <input name="discord_channel_id" placeholder="ID du salon">
+              </div>
+            </label>
+            <label>… ou webhook <input name="webhook_url" placeholder="https://discord.com/api/webhooks/..."></label>
+          </div>
+          <div class="cols-3">
+            <label>Mention <input name="mention" placeholder="@everyone, <@&ID_ROLE>, <@ID_USER>"></label>
+            <label>Couleur <input name="embed_color" type="color"></label>
+            <label>Annonces par requête <input name="limit" type="number" min="1" max="100"></label>
+          </div>
+          <div class="sub-head"><span>Champs affichés dans le message</span></div>
+          <div id="display-fields" class="chips"></div>
+        </fieldset>
+      </form>
+      <footer class="modal-foot">
+        <a id="editor-open-lbc" class="btn ghost" target="_blank" rel="noopener">↗ Ouvrir sur Leboncoin</a>
+        <span class="grow"></span>
+        <button type="button" class="btn" id="editor-preview">👀 Prévisualiser</button>
+        <button type="button" class="btn" id="editor-test">📨 Message test</button>
+        <button type="button" class="btn primary" id="editor-save">💾 Enregistrer</button>
+      </footer>
+    </div>
+  </div>
+
+  <!-- Prévisualisation -->
+  <div id="preview" class="modal hidden">
+    <div class="modal-box wide">
+      <header class="modal-head">
+        <h2 id="preview-title">Prévisualisation</h2>
+        <button class="btn ghost" data-close>✕</button>
+      </header>
+      <div id="preview-body" class="modal-body ads-grid"></div>
+    </div>
+  </div>
+
+  <div id="toasts" class="toasts"></div>
+  <script src="/static/app.js"></script>
+</body>
+</html>

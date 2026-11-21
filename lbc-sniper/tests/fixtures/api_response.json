@@ -1,0 +1,53 @@
+{
+  "total": 3,
+  "ads": [
+    {
+      "list_id": 3314900003,
+      "first_publication_date": "2026-11-21 14:00:05",
+      "index_date": "2026-11-21 14:00:05",
+      "status": "active",
+      "category_id": "15",
+      "category_name": "Ordinateurs",
+      "subject": "PC Gamer RTX 3070 Ryzen 7 5800X 32 Go",
+      "body": "Très bon état, boîtier vitré RGB. Envoi possible.",
+      "ad_type": "offer",
+      "url": "https://www.leboncoin.fr/ad/ordinateurs/3314900003",
+      "price": [650],
+      "price_cents": 65000,
+      "images": {"thumb_url": "https://img.leboncoin.fr/t3.jpg", "small_url": "https://img.leboncoin.fr/s3.jpg", "nb_images": 2, "urls": ["https://img.leboncoin.fr/a3.jpg", "https://img.leboncoin.fr/b3.jpg"], "urls_large": ["https://img.leboncoin.fr/L3.jpg"]},
+      "attributes": [
+        {"key": "condition", "key_label": "État", "value": "2", "value_label": "Très bon état", "generic": true},
+        {"key": "shippable", "value": "true", "generic": true},
+        {"key": "estimated_parcel_weight", "value": "15000", "generic": true}
+      ],
+      "location": {"region_name": "Rhône-Alpes", "department_name": "Rhône", "city_label": "Lyon 69003", "city": "Lyon", "zipcode": "69003", "lat": 45.75, "lng": 4.85},
+      "owner": {"store_id": "1", "user_id": "u1", "type": "private", "name": "Max", "no_salesmen": true},
+      "has_phone": false
+    },
+    {
+      "list_id": 3314900002,
+      "first_publication_date": "2026-11-21 13:58:00",
+      "category_name": "Ordinateurs",
+      "subject": "PC gamer HS pour pièces",
+      "body": "Ne démarre plus",
+      "url": "https://www.leboncoin.fr/ad/ordinateurs/3314900002",
+      "price": [120],
+      "images": {},
+      "attributes": [],
+      "location": {"city": "Paris", "zipcode": "75011", "department_name": "Paris"},
+      "owner": {"type": "pro", "name": "Boutique"}
+    },
+    {
+      "list_id": 3314900001,
+      "first_publication_date": "2026-11-21 13:55:00",
+      "category_name": "Ordinateurs",
+      "subject": "Tour RTX 3060 Ti",
+      "body": "",
+      "price": [480],
+      "images": {"small_url": "https://img.leboncoin.fr/s1.jpg"},
+      "attributes": [{"key": "shipping_type", "value": "mondial_relay"}],
+      "location": {"city": "Marseille", "zipcode": "13001", "department_name": "Bouches-du-Rhône"},
+      "owner": {"type": "private", "name": "Lea"}
+    }
+  ]
+}
