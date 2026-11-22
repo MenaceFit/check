@@ -209,8 +209,13 @@ async def _doctor(config: Config, countries: list[str], keywords: str) -> int:
             elapsed = f"{time.monotonic() - started:.1f}s"
             if not listings:
                 ok = False
-                table.add_row(market.host, "[yellow]0 annonce[/]", "0", elapsed,
-                              "Page reçue mais aucune annonce reconnue (mise en page eBay modifiée ?)")
+                detail = "Page reçue mais aucune annonce reconnue (mise en page eBay modifiée ?)"
+                page = getattr(source, "last_html", {}).get(code)
+                if page:
+                    dump = Path(f"debug_{market.host}.html").resolve()
+                    dump.write_text(page, encoding="utf-8")
+                    detail += f"\nPage enregistrée : {dump}"
+                table.add_row(market.host, "[yellow]0 annonce[/]", "0", elapsed, detail)
                 continue
             sample = listings[0]
             with_price = sum(1 for l in listings if l.price is not None)

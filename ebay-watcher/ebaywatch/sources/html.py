@@ -70,6 +70,7 @@ class HtmlSource:
             http2=False,
         )
         self._override = base_url_override or {}
+        self.last_html: dict[str, str] = {}      # market code -> last page body (for diagnostics)
 
     def _headers(self, market: Market) -> dict[str, str]:
         return {
@@ -96,6 +97,7 @@ class HtmlSource:
             )
         if status >= 400:
             raise SourceError(f"HTTP {status} sur {market.host}", status=status)
+        self.last_html[market.code] = response.text
         try:
             result = parse_search_page(response.text, market)
         except BlockedError as exc:

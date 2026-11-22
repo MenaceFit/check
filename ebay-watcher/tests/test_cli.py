@@ -73,6 +73,7 @@ def test_doctor_ok_and_failures(cfg_path, fake_ebay, capsys):
     assert run("-f", str(cfg_path), "doctor", "-c", "fr", "uk") == 2
     out = capsys.readouterr().out
     assert "BLOQUÉ" in out and "0 annonce" in out
+    assert (cfg_path.parent / "debug_www.ebay.fr.html").exists()     # page saved for debugging
 
 
 def test_doctor_uses_configured_countries(cfg_path, fake_ebay, capsys):
