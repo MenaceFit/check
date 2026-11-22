@@ -255,3 +255,41 @@ def test_backoff_growth(failures, expected):
     target = engine.targets[0]
     target.failures = failures - 1
     assert engine._backoff(target, blocked=False) == pytest.approx(expected)
+
+
+async def test_sponsored_old_listing_buried_in_results_is_ignored():
+    engine, source, dispatcher, _ = make_engine()
+    target = engine.targets[0]
+    source.pages["fr"] = [L(str(i)) for i in range(10, 0, -1)]          # 10..1 known
+    await engine.check_target(target)
+    source.pages["fr"] = [
+        L("12"), L("11"),                     # genuinely new, at the top
+        L("10"), L("9"), L("8"),
+        L("500"),                             # unknown but below 3 known ones -> sponsored insertion
+        L("7"), L("6"),
+    ]
+    new = await engine.check_target(target)
+    assert [l.item_id for l in new] == ["11", "12"]
+    assert await engine.check_target(target) == []                      # and never re-alerted later
+
+
+async def test_slightly_late_listing_is_still_alerted():
+    engine, source, dispatcher, _ = make_engine()
+    target = engine.targets[0]
+    source.pages["fr"] = [L("3"), L("2"), L("1")]
+    await engine.check_target(target)
+    # "21" was indexed a bit late: it shows up just below one newer known listing.
+    source.pages["fr"] = [L("20"), L("4"), L("21"), L("3"), L("2"), L("1")]
+    await engine.check_target(target)                                     # 20, 4, 21 new
+    source.pages["fr"] = [L("22"), L("20"), L("4"), L("23"), L("21"), L("3")]
+    new = await engine.check_target(target)
+    assert sorted(l.item_id for l in new) == ["22", "23"]                 # 23 is below only 2 known
+
+
+async def test_sponsored_guard_can_be_disabled():
+    engine, source, _, _ = make_engine(sponsored_guard=0)
+    target = engine.targets[0]
+    source.pages["fr"] = [L(str(i)) for i in range(10, 0, -1)]
+    await engine.check_target(target)
+    source.pages["fr"] = [L("10"), L("9"), L("8"), L("7"), L("500")]
+    assert [l.item_id for l in await engine.check_target(target)] == ["500"]

@@ -102,6 +102,13 @@ run.bat -v run                                                      # journal d�
    (`strict_title_match`), aucun mot exclu, prix dans la fourchette après conversion de devise. Elle est ensuite
    notifiée et enregistrée dans `ebaywatch.db`.
 4. La section « Résultats correspondant à moins de mots » d'eBay est ignorée : pas de faux positifs.
+5. **Annonces sponsorisées** : eBay glisse d'anciennes annonces sponsorisées dans les résultats, et le badge
+   « Sponsorisé » ne peut pas servir à les repérer (eBay le place dans toutes les cartes pour piéger les robots).
+   Le bot s'appuie donc sur l'ordre chronologique : une vraie nouveauté apparaît tout en haut. Une annonce inconnue
+   placée sous au moins `sponsored_guard` (3) annonces déjà connues est ignorée.
+6. **Mises en page eBay** : le bot reconnaît les trois mises en page actuelles d'eBay (`s-card`, `search-evo` en
+   déploiement sur .co.uk et .com, et l'ancienne `s-item`). Si eBay renomme ses classes CSS, un mode de secours
+   repère les annonces par la structure de la page. Il a été testé en renommant toutes les classes des pages de test.
 
 **Intervalle** : 45 à 90 s est le bon compromis. eBay met environ une minute à indexer une nouvelle annonce, donc
 descendre sous 30 s n'apporte rien et augmente le risque de blocage. Le bot espace automatiquement ses requêtes :
@@ -132,12 +139,12 @@ par jour gratuitement. C'est assez pour environ 3 cibles toutes les 60 s, ou 6 c
 
 ```bash
 python -m venv .venv && .venv/bin/pip install -r requirements-dev.txt
-.venv/bin/python -m pytest          # 134 tests, ~30 s
+.venv/bin/python -m pytest          # 146 tests, ~30 s
 ```
 
 | Module | Rôle |
 |---|---|
-| `ebaywatch/parser.py` | analyse des pages eBay : mises en page `s-card` (actuelle) et `s-item` (ancienne), avec un mode de secours générique |
+| `ebaywatch/parser.py` | analyse des pages eBay : mises en page `s-card`, `search-evo` et `s-item`, plus un mode de secours structurel indépendant des classes CSS |
 | `ebaywatch/sources/` | backends `html` (pages eBay) et `api` (Browse API, OAuth avec jeton en cache) |
 | `ebaywatch/engine.py` | planification, détection des nouveautés, déduplication, backoff |
 | `ebaywatch/store.py` | SQLite (WAL) : annonces vues, baselines, historique |

@@ -29,6 +29,11 @@ strict_title_match = true
 # seules les annonces publiées APRÈS le lancement déclenchent une alerte.
 notify_existing_on_start = false
 
+# Anti-annonces sponsorisées : eBay glisse d'anciennes annonces sponsorisées dans les
+# résultats. Une annonce inconnue placée SOUS au moins N annonces déjà connues est ignorée
+# (une vraie nouveauté apparaît tout en haut). 3 = bon réglage, 0 = désactivé.
+sponsored_guard = 3
+
 # Base de données (annonces vues + historique), relative à ce fichier.
 database = "ebaywatch.db"
 

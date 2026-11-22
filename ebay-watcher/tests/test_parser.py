@@ -129,3 +129,82 @@ def test_fallback_extracts_price():
     listing = parse_search_page(html, get_market("de")).listings[0]
     assert listing.title == "Nintendo Switch Lite"
     assert listing.price == 89.0
+
+
+# --------------------------------------------------------------- newer / unknown layouts
+def test_search_evo_layout_uk():
+    result = parse_search_page(fixture_text("ebay_uk_search_evo.html"), get_market("uk"))
+    assert result.layout == "search-evo"
+    # items after the "fewer words" divider and in the footer are ignored
+    assert [l.item_id for l in result.listings] == ["406123456789", "287765544332"]
+    first, second = result.listings
+    assert first.title == "Nintendo Switch OLED Neon Red/Blue Console"     # <wbr> + label + notice removed
+    assert (first.price, first.currency) == (249.99, "GBP")
+    assert first.subtitle == "Brand new"
+    assert first.image_url == "https://i.ebayimg.com/images/g/Evo1/s-l500.webp"
+    assert first.shipping_text == "+£3.99 postage"
+    assert first.location_text == "Located in United Kingdom"
+    assert not first.is_auction
+    assert second.price == 180.0 and second.is_auction and second.bids == 7
+    assert second.shipping_text == "Free postage"
+    assert second.image_url == "https://i.ebayimg.com/images/g/Evo2/s-l500.jpg"   # lazy-load placeholder skipped
+
+
+def test_wbr_does_not_split_words():
+    html = scard_page([{"id": "226000000020", "title": "PLACEHOLDER"}]).replace(
+        "PLACEHOLDER", "Marvel Legends Wolverine💥Pic<wbr>k Greatest Battles")
+    assert parse_search_page(html, get_market("fr")).listings[0].title == \
+        "Marvel Legends Wolverine💥Pick Greatest Battles"
+
+
+def test_multiple_subtitle_rows_are_kept():
+    html = """<ul class="srp-results"><li class="s-card" data-listingid="226000000030">
+      <a class="s-card__link" href="https://www.ebay.com/itm/226000000030"><div class="s-card__title"><span>iPhone 15</span></div></a>
+      <div class="s-card__subtitle"><span>Apple iPhone 15 · 128 GB</span></div>
+      <div class="s-card__subtitle"><span>Pre-Owned</span></div>
+      <span class="s-card__price">$500.00</span></li></ul>"""
+    listing = parse_search_page(html, get_market("us")).listings[0]
+    assert listing.subtitle == "Apple iPhone 15 · 128 GB · Pre-Owned"
+
+
+def test_suspicious_listing_id_falls_back_to_link():
+    html = """<ul class="srp-results"><li class="s-card" data-listingid="12345678901234567890">
+      <a href="https://www.ebay.fr/itm/226000000040"><div class="s-card__title"><span>Objet</span></div></a>
+      <span class="s-card__price">5,00 EUR</span></li></ul>"""
+    assert [l.item_id for l in parse_search_page(html, get_market("fr")).listings] == ["226000000040"]
+
+
+@pytest.mark.parametrize("fixture,market", [("ebay_fr_scard.html", "fr"), ("ebay_uk_sitem.html", "uk"),
+                                            ("ebay_uk_search_evo.html", "uk")])
+def test_survives_complete_class_renaming(fixture, market):
+    """Simulate eBay renaming every CSS class: the structural fallback must find the same listings."""
+    import re as _re
+
+    original = parse_search_page(fixture_text(fixture), get_market(market))
+    keep = {"REWRITE_START", "srp-river-answer--REWRITE_START", "clipped", "LIGHT_HIGHLIGHT"}
+
+    def rename(match):
+        classes = [c if c in keep else "zz" + str(abs(hash(c)) % 10**6) for c in match.group(1).split()]
+        return f'class="{" ".join(classes)}"'
+
+    mutated = _re.sub(r'class="([^"]*)"', rename, fixture_text(fixture)).replace("data-listingid", "data-x")
+    result = parse_search_page(mutated, get_market(market))
+    assert result.layout == "fallback"
+    assert [l.item_id for l in result.listings] == [l.item_id for l in original.listings]
+    for before, after in zip(original.listings, result.listings):
+        assert after.price == before.price, (after.title, after.price_text)
+        assert after.is_auction == before.is_auction and after.bids == before.bids
+        if before.shipping_text:
+            assert after.shipping_text == before.shipping_text
+        assert before.title in after.title or after.title in before.title
+
+
+def test_structural_fallback_single_result_page():
+    html = """<html><body><header><h1>1 résultat pour lego 42143</h1></header>
+      <main><div class="grid"><article><a href="https://www.ebay.fr/itm/226000000050">
+      <img src="https://i.ebayimg.com/images/g/z/s-l140.jpg" alt="Lego Technic Ferrari Daytona 42143"></a>
+      <div><span>399,99 EUR</span></div><div><span>+9,90 EUR livraison</span></div></article></div></main></body></html>"""
+    [listing] = parse_search_page(html, get_market("fr")).listings
+    assert listing.title == "Lego Technic Ferrari Daytona 42143"
+    assert listing.price == 399.99
+    assert listing.shipping_text == "+9,90 EUR livraison"

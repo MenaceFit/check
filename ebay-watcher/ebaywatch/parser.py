@@ -1,13 +1,15 @@
 """Parser for eBay search result pages (SRP).
 
-eBay serves two generations of markup depending on site and A/B tests:
+eBay serves several generations of markup depending on site and A/B tests:
 
-* the current "s-card" layout  (``li.s-card[data-listingid]``)
-* the legacy "s-item" layout   (``li.s-item``)
+* "s-card" layout          ``ul.srp-results > li.s-card[data-listingid]`` (2025-2026, most sites)
+* "search-evo" layout      ``.su-item-card.s-item-card--search-evo`` (rolling out on .co.uk / .com, 2026)
+* legacy "s-item" layout   ``li.s-item``
 
-The parser supports both, plus a last-resort fallback that groups every
-``/itm/<id>`` link by its list item, so that a small markup change on eBay's
-side degrades gracefully instead of silently returning nothing.
+Known layouts are matched by class name. When none matches, a structural
+fallback finds every ``/itm/<id>`` link and climbs to the largest element that
+contains that single listing only, so that a future renaming of CSS classes on
+eBay's side degrades gracefully instead of silently returning nothing.
 """
 
 from __future__ import annotations
@@ -27,6 +29,8 @@ _PLACEHOLDER_IDS = {"123456"}
 _TITLE_SELECTORS = (
     ".s-card__title .su-styled-text",
     ".s-card__title",
+    ".su-item-card__title",
+    "[class*='card__title']",
     ".s-item__title span[role=heading]",
     ".s-item__title",
     "[role=heading]",
@@ -34,11 +38,15 @@ _TITLE_SELECTORS = (
     "h2",
     "h4",
 )
-_PRICE_SELECTORS = (".s-card__price", ".s-item__price")
-_SUBTITLE_SELECTORS = (".s-card__subtitle", ".s-item__subtitle", ".SECONDARY_INFO")
-_SHIPPING_SELECTORS = (".s-item__shipping", ".s-item__logisticsCost", ".s-item__freeXDays")
-_LOCATION_SELECTORS = (".s-item__location", ".s-item__itemLocation")
-_BIDS_SELECTORS = (".s-item__bids", ".s-item__bidCount")
+_PRICE_SELECTORS = (".s-card__price", ".su-item-card__price", ".s-item__price", "[class*='card__price']")
+_SUBTITLE_SELECTORS = (".s-card__subtitle", ".su-item-card__subtitle", ".s-item__subtitle", ".SECONDARY_INFO",
+                       "[class*='card__subtitle']")
+_SHIPPING_SELECTORS = (".s-item__shipping", ".s-item__logisticsCost", ".s-item__freeXDays", ".s-card__logisticsCost",
+                       ".s-card__freeXDays", ".s-card__localDelivery", "[class*='card__logisticsCost']")
+_LOCATION_SELECTORS = (".s-item__location", ".s-item__itemLocation", ".s-card__location", "[class*='card__location']")
+_BIDS_SELECTORS = (".s-item__bids", ".s-item__bidCount", ".s-card__bidCount", "[class*='card__bidCount']")
+_CARD_TITLE_CONTAINERS = (".s-card__title", ".su-item-card__title", ".s-item__title")
+_WBR_RE = re.compile(r"<wbr\s*/?>", re.IGNORECASE)
 
 # Strings eBay injects in titles that are not part of the seller's title.
 _TITLE_NOISE = re.compile(
@@ -134,7 +142,7 @@ def _clean_title(raw: str) -> str:
 
 def _title_from(node: LexborNode) -> str:
     title_node = None
-    for sel in (".s-card__title", ".s-item__title"):
+    for sel in _CARD_TITLE_CONTAINERS:
         title_node = node.css_first(sel)
         if title_node is not None:
             break
@@ -189,11 +197,36 @@ def _upgrade_image(url: str) -> str:
     return _IMG_SIZE_RE.sub(lambda m: f"/s-l500.{m.group(1)}", url)
 
 
+def _subtitles(node: LexborNode) -> str:
+    """eBay may show several subtitle rows (product line, condition): keep them all, once."""
+    for sel in _SUBTITLE_SELECTORS:
+        found = [clean_spaces(n.text(separator=" ")) for n in node.css(sel)]
+        found = [t for t in dict.fromkeys(found) if t]
+        if found:
+            # drop rows that are contained in another one (nested matches)
+            rows = [t for t in found if not any(t != o and t in o for o in found)]
+            return " · ".join(rows)
+    return ""
+
+
+_ROW_SELECTORS = (".s-card__attribute-row", "[class*='card__row']", "[class*='attribute-row']")
+
+
 def _attribute_rows(node: LexborNode) -> list[str]:
+    """Secondary info lines of a card (price, shipping, location, bids...)."""
+    for sel in _ROW_SELECTORS:
+        rows = [clean_spaces(r.text(separator=" ")) for r in node.css(sel)]
+        rows = [r for r in rows if r]
+        if rows:
+            return rows
+    # Unknown markup: short leaf texts outside the title.
+    title_ids = {n.mem_id for sel in _CARD_TITLE_CONTAINERS for t in node.css(sel) for n in t.css("*")}
     rows = []
-    for row in node.css(".s-card__attribute-row"):
-        text = clean_spaces(row.text(separator=" "))
-        if text:
+    for leaf in node.css("span, div, p, li"):
+        if leaf.mem_id in title_ids or _has_descendant(leaf, "span, div, p, li, a"):
+            continue
+        text = clean_spaces(leaf.text(separator=" "))
+        if 0 < len(text) <= 80 and text not in rows:
             rows.append(text)
     return rows
 
@@ -260,7 +293,7 @@ def _build_listing(node: LexborNode, item_id: str, market: Market) -> Listing | 
         price_text=price_text,
         shipping_text=shipping,
         image_url=_image_from(node),
-        subtitle=_first_text(node, _SUBTITLE_SELECTORS),
+        subtitle=_subtitles(node),
         location_text=location,
         is_auction=is_auction,
         bids=bids,
@@ -275,7 +308,7 @@ def _is_rewrite_divider(node: LexborNode) -> bool:
 
 def _container_id(node: LexborNode) -> str | None:
     listing_id = node.attributes.get("data-listingid")
-    if listing_id and listing_id.isdigit() and listing_id not in _PLACEHOLDER_IDS:
+    if listing_id and listing_id.isdigit() and 9 <= len(listing_id) <= 15:
         return listing_id
     for link in node.css("a[href]"):
         item_id = extract_item_id(link.attributes.get("href"))
@@ -284,12 +317,93 @@ def _container_id(node: LexborNode) -> str | None:
     return None
 
 
+def _cut_after_divider(tree: LexborHTMLParser) -> bool:
+    """Remove everything after eBay's "Results matching fewer words" divider (document order)."""
+    divider = tree.css_first("[class*='REWRITE_START']")
+    if divider is None:
+        return False
+    node = divider
+    while node is not None and node.tag not in ("body", "html"):
+        sibling = node.next
+        while sibling is not None:
+            following = sibling.next
+            sibling.decompose()
+            sibling = following
+        node = node.parent
+    divider.decompose()
+    return True
+
+
+_KNOWN_CARD_SELECTOR = "li.s-card, [data-listingid], .su-item-card, .s-item-card, li.s-item"
+
+
+def _layout_of(node: LexborNode) -> str:
+    classes = (node.attributes.get("class") or "").split()
+    if "s-item" in classes:
+        return "s-item"
+    if "su-item-card" in classes or "s-item-card" in classes:
+        return "search-evo"
+    return "s-card"
+
+
+def _known_cards(root: LexborNode) -> tuple[list[LexborNode], str]:
+    nodes = root.css(_KNOWN_CARD_SELECTOR)
+    ids = {n.mem_id for n in nodes}
+    cards = []
+    for node in nodes:
+        parent, nested = node.parent, False
+        while parent is not None:
+            if parent.mem_id in ids:
+                nested = True
+                break
+            parent = parent.parent
+        if not nested:
+            cards.append(node)
+    layouts = {_layout_of(n) for n in cards}
+    layout = layouts.pop() if len(layouts) == 1 else ("mixed" if layouts else "none")
+    return cards, layout
+
+
+def _structural_cards(root: LexborNode) -> list[LexborNode]:
+    """For each item link, the largest ancestor that contains no other listing."""
+    cache: dict[int, set[str]] = {}
+
+    def ids_in(n: LexborNode) -> set[str]:
+        key = n.mem_id
+        if key not in cache:
+            cache[key] = {
+                i for a in n.css("a[href*='/itm/']") if (i := extract_item_id(a.attributes.get("href")))
+            }
+        return cache[key]
+
+    root_id = root.mem_id
+    cards: list[LexborNode] = []
+    seen: set[str] = set()
+    for link in root.css("a[href*='/itm/']"):
+        item_id = extract_item_id(link.attributes.get("href"))
+        if not item_id or item_id in seen:
+            continue
+        node = link
+        while (
+            node.parent is not None
+            and node.mem_id != root_id
+            and node.parent.tag not in ("body", "html")
+            and ids_in(node.parent) <= {item_id}
+        ):
+            node = node.parent
+        seen.add(item_id)
+        cards.append(node)
+    return cards
+
+
 def parse_search_page(html: str, market: Market) -> ParseResult:
     if is_block_page(html):
         raise BlockedError("Page anti-robot eBay (captcha / challenge)")
 
-    tree = LexborHTMLParser(html)
+    # <wbr> (word-break hint) splits words in long titles: drop it before parsing.
+    tree = LexborHTMLParser(_WBR_RE.sub("", html))
     result = ParseResult()
+    had_divider = _cut_after_divider(tree)
 
     root = (
         tree.css_first("#srp-river-results")
@@ -300,41 +414,10 @@ def parse_search_page(html: str, market: Market) -> ParseResult:
     if root is None:
         return result
 
-    # Collect candidate containers in document order, stopping at the
-    # "Results matching fewer words" divider: what follows is not a real match.
-    candidates: list[LexborNode] = []
-    fallback: list[LexborNode] = []
-    fallback_ids: set[int] = set()
-    layout = "none"
-    for node in root.css("li, [class*='REWRITE_START']"):
-        if _is_rewrite_divider(node):
-            result.no_exact_results = not candidates and not fallback
-            break
-        classes = (node.attributes.get("class") or "").split()
-        if node.attributes.get("data-listingid") is not None or "s-card" in classes:
-            layout = "s-card" if layout in ("none", "s-card") else "mixed"
-            candidates.append(node)
-            continue
-        if "s-item" in classes:
-            layout = "s-item" if layout in ("none", "s-item") else "mixed"
-            candidates.append(node)
-            continue
-        # Unknown markup: remember the outermost <li> holding an item link.
-        if node.css_first("a[href*='/itm/']") is not None:
-            parent = node.parent
-            nested = False
-            while parent is not None:
-                if parent.tag == "li" and parent.mem_id in fallback_ids:
-                    nested = True
-                    break
-                parent = parent.parent
-            if not nested:
-                fallback_ids.add(node.mem_id)
-                fallback.append(node)
-
-    if not candidates and fallback:
-        layout = "fallback"
-        candidates = fallback
+    candidates, layout = _known_cards(root)
+    if not candidates:
+        candidates = _structural_cards(root)
+        layout = "fallback" if candidates else "none"
 
     result.layout = layout
     result.total_containers = len(candidates)
@@ -348,4 +431,5 @@ def parse_search_page(html: str, market: Market) -> ParseResult:
             continue
         seen_ids.add(item_id)
         result.listings.append(listing)
+    result.no_exact_results = had_divider and not result.listings
     return result

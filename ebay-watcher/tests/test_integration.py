@@ -121,3 +121,23 @@ async def test_end_to_end_blocked_then_recovers(fake_ebay, tmp_path):
     results = await engine.run_once()
     assert [l.title for l in results["S [FR]"]] == ["Lego Star Wars"]
     await source.aclose()
+
+
+async def test_end_to_end_search_evo_layout_over_http(fake_ebay):
+    """The newest eBay layout served over real HTTP, then a new card appears on top."""
+    from .conftest import fixture_text
+
+    config = Config.from_dict({"general": {"min_delay_per_host": 0},
+                               "searches": [{"name": "OLED", "keywords": "switch oled", "countries": ["uk"]}]})
+    page = fixture_text("ebay_uk_search_evo.html")
+    fake_ebay.pages["uk"] = page
+    source = HtmlSource(config, base_url_override={"uk": fake_ebay.url_for("uk")})
+    engine = Engine(config, source, Store(":memory:"), None, interval=0.1, min_delay_per_host=0, jitter=0)
+    assert (await engine.run_once())["OLED [UK]"] == []            # baseline: 2 listings memorised
+    new_card = ('<div class="su-item-card s-item-card--search-evo"><a href="https://www.ebay.co.uk/itm/406999999999">'
+                '<h3 class="su-item-card__title"><span>Switch OLED Mario edition</span></h3></a>'
+                '<span class="su-item-card__price">£230.00</span></div>')
+    fake_ebay.pages["uk"] = page.replace('<div class="srp-river-main">', '<div class="srp-river-main">' + new_card, 1)
+    [listing] = (await engine.run_once())["OLED [UK]"]
+    await source.aclose()
+    assert listing.item_id == "406999999999" and listing.price == 230.0 and listing.currency == "GBP"

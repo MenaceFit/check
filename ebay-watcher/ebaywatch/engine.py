@@ -180,10 +180,27 @@ class Engine:
 
         unseen = set(self.store.unseen(key, ids))
         self.store.mark_seen(key, ids)
+
+        # eBay lists newest first, so a genuinely new listing shows up ABOVE the
+        # listings we already know. An unknown one buried below several known ones
+        # is a sponsored insertion (old listing promoted into the results).
+        guard = self.config.general.sponsored_guard
+        buried: set[str] = set()
+        if guard:
+            known_above = 0
+            for item in listings:
+                if item.item_id in unseen:
+                    if known_above >= guard:
+                        buried.add(item.item_id)
+                else:
+                    known_above += 1
+            if buried:
+                log.debug("%s: %d sponsored/old listing(s) ignored", target.label, len(buried))
+
         fresh: list[Listing] = []
         # eBay returns newest first; notify in chronological order.
         for item in reversed(listings):
-            if item.item_id not in unseen:
+            if item.item_id not in unseen or item.item_id in buried:
                 continue
             decision = flt.check(item)
             if not decision.accepted:
@@ -200,7 +217,12 @@ class Engine:
         target.new_total += len(fresh)
         self.new_total += len(fresh)
         target.state = TargetState.OK
-        target.message = f"{len(fresh)} nouvelle(s)" if fresh else "rien de nouveau"
+        if fresh:
+            target.message = f"{len(fresh)} nouvelle(s)"
+        elif not listings:
+            target.message = "0 annonce reçue (recherche trop précise ?)"
+        else:
+            target.message = "rien de nouveau"
         self._emit(TargetUpdated(target))
         if fresh:
             self._log("info", f"{target.label} : {len(fresh)} nouvelle(s) annonce(s)")

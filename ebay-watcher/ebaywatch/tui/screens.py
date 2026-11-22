@@ -74,7 +74,7 @@ class SearchFormScreen(ModalScreen[Search | None]):
             yield Input(value=s.keywords if s else "", placeholder="ex : nintendo switch oled", id="f-keywords")
             yield Label("Pays à surveiller *  (Espace pour cocher)")
             yield SelectionList[str](
-                *(Selection(f"{m.flag}  {m.code.upper()} — {m.name} ({m.host})", m.code, m.code in countries)
+                *(Selection(f"{m.code.upper()} — {m.name} ({m.host})", m.code, m.code in countries)
                   for m in MARKETS.values()),
                 id="f-countries",
             )

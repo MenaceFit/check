@@ -172,7 +172,7 @@ class EbayWatchApp(App[None]):
             kind = "Enchère" if listing.is_auction else "Achat imm."
             table.add_row(
                 listing.found_at.astimezone().strftime("%H:%M:%S"),
-                f"{market.flag} {market.code.upper()}",
+                market.code.upper(),
                 Text(listing.search_name),
                 Text(listing.title),
                 Text(listing.display_price, style="bold"),
@@ -224,7 +224,7 @@ class EbayWatchApp(App[None]):
         for target in self.targets.values():
             last = target.last_check.astimezone().strftime("%H:%M:%S") if target.last_check else "—"
             table.add_row(
-                Text(f"{target.market.flag} {target.label}"),
+                Text(target.label),
                 Text(target.state.value, style=_STATE_STYLE[target.state]),
                 last,
                 str(target.last_count),

@@ -141,6 +141,9 @@ class GeneralSettings:
     request_timeout: float = 20.0
     strict_title_match: bool = True       # every keyword must appear in the title
     notify_existing_on_start: bool = False
+    # An unseen listing shown BELOW this many already-known listings is not new
+    # (eBay sorts by newest first): it is a sponsored/promoted insertion. 0 = disabled.
+    sponsored_guard: int = 3
     database: str = "ebaywatch.db"
     user_agent: str = ""
 
@@ -158,6 +161,12 @@ class GeneralSettings:
         s.backend = str(data.get("backend", s.backend)).lower()
         s.strict_title_match = bool(data.get("strict_title_match", s.strict_title_match))
         s.notify_existing_on_start = bool(data.get("notify_existing_on_start", s.notify_existing_on_start))
+        try:
+            s.sponsored_guard = int(data.get("sponsored_guard", s.sponsored_guard))
+        except (TypeError, ValueError):
+            raise ConfigError("[general] sponsored_guard doit être un nombre entier") from None
+        if s.sponsored_guard < 0:
+            raise ConfigError("[general] sponsored_guard ne peut pas être négatif")
         s.database = str(data.get("database", s.database))
         s.user_agent = str(data.get("user_agent", "") or "")
         if s.backend not in ("html", "api"):
@@ -180,6 +189,7 @@ class GeneralSettings:
             "request_timeout": self.request_timeout,
             "strict_title_match": self.strict_title_match,
             "notify_existing_on_start": self.notify_existing_on_start,
+            "sponsored_guard": self.sponsored_guard,
             "database": self.database,
             "user_agent": self.user_agent,
         }

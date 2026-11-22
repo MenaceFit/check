@@ -151,7 +151,7 @@ async def _search_once(config: Config, search: Search, show_all: bool) -> int:
                     rows.append((listing, "✔" if decision.accepted else f"✘ {decision.reason}"))
             elapsed = time.monotonic() - started
             console.print(_listing_table(
-                rows, f"{market.flag} {market.host} — {len(listings)} annonces lues, {kept} retenues "
+                rows, f"{market.host} — {len(listings)} annonces lues, {kept} retenues "
                       f"({elapsed:.1f} s) — les plus récentes en premier"))
     finally:
         await source.aclose()
