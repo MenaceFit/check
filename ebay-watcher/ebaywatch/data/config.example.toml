@@ -1,0 +1,88 @@
+# ============================================================================
+#  eBay Watcher — fichier de configuration
+#  Ce fichier est créé automatiquement au 1er lancement (config.toml).
+#  Modifie-le à la main OU depuis l'interface (touches A / E / P),
+#  puis touche R dans l'interface pour recharger après une modif manuelle.
+# ============================================================================
+
+[general]
+# Délai entre deux vérifications d'une même recherche dans un même pays (secondes, min. 15).
+# 45-90 s est un bon compromis : eBay indexe les nouvelles annonces en ~1 min.
+interval_seconds = 60
+
+# « html » = lecture des pages de recherche eBay (aucune clé nécessaire)
+# « api »  = API officielle eBay Browse (gratuite, plus fiable, voir [api])
+backend = "html"
+
+# Nombre d'annonces lues par page (60, 120 ou 240). 60 suffit pour du temps réel.
+results_per_page = 60
+
+# Requêtes simultanées max et délai minimal entre 2 requêtes vers le même site.
+max_concurrency = 3
+min_delay_per_host = 2.0
+request_timeout = 20.0
+
+# true = TOUS les mots-clés doivent apparaître dans le titre (évite le bruit d'eBay).
+strict_title_match = true
+
+# false = au démarrage, les annonces déjà en ligne sont mémorisées sans alerte ;
+# seules les annonces publiées APRÈS le lancement déclenchent une alerte.
+notify_existing_on_start = false
+
+# Base de données (annonces vues + historique), relative à ce fichier.
+database = "ebaywatch.db"
+
+# User-Agent personnalisé (laisser vide pour la valeur par défaut).
+user_agent = ""
+
+[api]
+# Uniquement si backend = "api". Clés gratuites sur https://developer.ebay.com
+# (Application Keys > Production > App ID = client_id, Cert ID = client_secret).
+# Peut aussi venir des variables d'environnement EBAY_CLIENT_ID / EBAY_CLIENT_SECRET.
+client_id = ""
+client_secret = ""
+
+[notifications]
+sound = true      # bip dans le terminal à chaque nouvelle annonce
+
+[notifications.discord]
+# Salon Discord > Modifier > Intégrations > Webhooks > Copier l'URL
+webhook_url = ""
+
+[notifications.telegram]
+# Crée un bot avec @BotFather (token), puis récupère ton chat_id avec @userinfobot
+bot_token = ""
+chat_id = ""
+
+# ----------------------------------------------------------------------------
+#  RECHERCHES — un bloc [[searches]] par recherche
+#  countries : fr uk de it es us be nl at ch ie pl ca au
+#  buying_format : all | bin (achat immédiat) | auction (enchères)
+#  condition : all | new | used
+#  min_price / max_price : dans la devise « currency » (convertie pour chaque pays)
+#  exclude : mots qui font ignorer une annonce s'ils sont dans le titre
+#  keywords accepte aussi la syntaxe eBay : -mot pour exclure, "phrase exacte"
+# ----------------------------------------------------------------------------
+
+[[searches]]
+name = "Switch OLED"
+keywords = "nintendo switch oled"
+countries = ["fr", "uk", "de"]
+min_price = 120
+max_price = 260
+currency = "EUR"
+exclude = ["boite vide", "coque", "housse", "pour pièces", "hs", "cassé", "empty box", "case"]
+buying_format = "all"
+condition = "all"
+enabled = true
+
+[[searches]]
+name = "PS5 Slim"
+keywords = "ps5 slim"
+countries = ["fr"]
+max_price = 380
+currency = "EUR"
+exclude = ["manette seule", "jeu", "boite"]
+buying_format = "bin"
+condition = "all"
+enabled = false

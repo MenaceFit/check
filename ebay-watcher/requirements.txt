@@ -1,0 +1,5 @@
+httpx>=0.27,<1
+selectolax>=0.3.21
+textual>=0.86
+rich>=13.7
+tomli-w>=1.0

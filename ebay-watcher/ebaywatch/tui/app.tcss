@@ -1,0 +1,133 @@
+Screen {
+    layout: vertical;
+}
+
+#status {
+    height: 1;
+    padding: 0 1;
+    background: $boost;
+}
+
+TabbedContent {
+    height: 1fr;
+}
+
+TabPane {
+    padding: 0;
+}
+
+#feed-table, #search-table {
+    height: 1fr;
+}
+
+#log-view {
+    height: 1fr;
+}
+
+#target-table {
+    height: 9;
+    border-top: solid $primary;
+}
+
+.hint {
+    height: 1;
+    color: $text-muted;
+    padding: 0 1;
+}
+
+/* ---------- dialogs ---------- */
+ModalScreen {
+    align: center middle;
+    background: $background 60%;
+}
+
+.dialog {
+    background: $surface;
+    border: thick $primary;
+    padding: 1 2;
+}
+
+.form {
+    width: 100;
+    max-width: 95%;
+    height: auto;
+    max-height: 95%;
+}
+
+.dialog-title {
+    text-style: bold;
+    color: $accent;
+    margin-bottom: 1;
+}
+
+.section {
+    text-style: bold;
+    margin-top: 1;
+    color: $accent;
+}
+
+.form Label {
+    margin-top: 1;
+}
+
+#f-countries {
+    height: 9;
+}
+
+.row {
+    height: auto;
+}
+
+.col {
+    width: 1fr;
+    height: auto;
+    margin-right: 1;
+}
+
+.col.wide {
+    width: 2fr;
+}
+
+.switch-row {
+    margin-top: 1;
+    align: left middle;
+}
+
+.switch-row Label {
+    margin-top: 0;
+}
+
+.buttons {
+    height: auto;
+    margin-top: 1;
+    align: right middle;
+}
+
+.buttons Button {
+    margin-left: 2;
+}
+
+.error {
+    color: $error;
+    text-style: bold;
+    height: auto;
+    margin-top: 1;
+}
+
+#confirm-dialog {
+    grid-size: 2;
+    grid-gutter: 1 2;
+    grid-rows: auto 3;
+    width: 60;
+    height: auto;
+}
+
+#confirm-question {
+    column-span: 2;
+    width: 1fr;
+    content-align: center middle;
+}
+
+#confirm-dialog Button {
+    width: 100%;
+}
