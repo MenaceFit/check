@@ -10,7 +10,9 @@ from ebaywatch.models import BuyingFormat, Condition
 def test_template_is_valid_and_complete():
     data = tomllib.loads(template_text())
     config = Config.from_dict(data)
-    assert config.general.backend == "html"
+    assert config.general.backend == "auto"
+    assert config.effective_backend == "html"          # no keys in the template
+    assert config.general.api_daily_limit == 5000
     assert len(config.searches) == 2
     switch = config.searches[0]
     assert switch.countries == ["fr", "uk", "de"]

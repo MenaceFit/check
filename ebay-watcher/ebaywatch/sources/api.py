@@ -42,6 +42,7 @@ def build_api_params(search: Search, market: Market, config: Config) -> dict[str
         filters.append("conditions:{NEW}")
     elif search.condition is Condition.USED:
         filters.append("conditions:{USED}")
+    # Documented syntax: price:[min..], price:[..max], price:[min..max] (+ priceCurrency).
     if search.min_price is not None or search.max_price is not None:
         low = config.convert(search.min_price, search.currency, market.currency) if search.min_price else None
         high = config.convert(search.max_price, search.currency, market.currency) if search.max_price else None
@@ -63,6 +64,9 @@ class ApiSource:
     def __init__(self, config: Config, client: httpx.AsyncClient | None = None, api_root: str = API_ROOT) -> None:
         if not config.api.configured:
             raise ValueError("client_id / client_secret manquants pour le backend API")
+        if config.api.is_sandbox:
+            raise ValueError("Ces clés sont des clés SANDBOX (« -SBX- ») : elles ne voient pas les vraies annonces. "
+                             "Utilise les clés PRODUCTION (App ID contenant « -PRD- »).")
         self.config = config
         self.api_root = api_root.rstrip("/")
         self._own_client = client is None
@@ -88,8 +92,18 @@ class ApiSource:
             except httpx.HTTPError as exc:
                 raise SourceError(f"API eBay : échec de l'authentification ({exc.__class__.__name__})") from exc
             if response.status_code != 200:
+                detail = ""
+                try:
+                    body = response.json()
+                    detail = body.get("error_description") or body.get("error") or ""
+                except Exception:  # noqa: BLE001
+                    pass
+                hint = ("vérifie l'App ID (client_id) et le Cert ID (client_secret) de ton keyset PRODUCTION, "
+                        "et que le keyset est activé (exemption « Marketplace Account Deletion »)")
                 raise SourceError(
-                    f"API eBay : identifiants refusés (HTTP {response.status_code})", status=response.status_code
+                    f"API eBay : identifiants refusés (HTTP {response.status_code}"
+                    f"{' — ' + detail if detail else ''}) : {hint}",
+                    status=response.status_code,
                 )
             payload = response.json()
             self._token = payload["access_token"]
@@ -110,6 +124,8 @@ class ApiSource:
                         "Accept-Language": market.language.split(",")[0],
                     },
                 )
+            except httpx.TimeoutException as exc:
+                raise SourceError("API eBay : délai dépassé") from exc
             except httpx.HTTPError as exc:
                 raise SourceError(f"API eBay : erreur réseau ({exc.__class__.__name__})") from exc
             if response.status_code == 401 and attempt == 0:
@@ -119,7 +135,14 @@ class ApiSource:
         if status == 429:
             raise BlockedSourceError("API eBay : quota d'appels atteint (429)", status=429)
         if status >= 400:
-            raise SourceError(f"API eBay : HTTP {status} — {response.text[:200]}", status=status)
+            message = response.text[:200]
+            try:
+                errors = response.json().get("errors") or []
+                if errors:
+                    message = "; ".join(e.get("longMessage") or e.get("message", "") for e in errors)[:300]
+            except Exception:  # noqa: BLE001
+                pass
+            raise SourceError(f"API eBay : HTTP {status} — {message}", status=status)
         return [self._to_listing(item, market) for item in response.json().get("itemSummaries", []) or []]
 
     @staticmethod
@@ -158,3 +181,28 @@ class ApiSource:
     async def aclose(self) -> None:
         if self._own_client:
             await self._client.aclose()
+
+
+async def verify_credentials(config: Config, client: httpx.AsyncClient | None = None,
+                             api_root: str = API_ROOT) -> tuple[bool, str]:
+    """Get a token and run one real search. Returns (ok, human readable message)."""
+    from ..markets import get_market
+
+    try:
+        source = ApiSource(config, client=client, api_root=api_root)
+    except ValueError as exc:
+        return False, str(exc)
+    try:
+        await source._get_token(force=True)
+        codes = [c for s in config.searches for c in s.countries] or ["fr"]
+        market = get_market(codes[0])
+        probe = Search(name="test", keywords="iphone", countries=[market.code])
+        items = await source.search(probe, market)
+    except SourceError as exc:
+        return False, str(exc)
+    finally:
+        await source.aclose()
+    if not items:
+        return True, f"Connexion OK mais 0 annonce reçue sur eBay {market.name} (inhabituel)."
+    sample = items[0]
+    return True, f"Connexion OK : {len(items)} annonces reçues sur eBay {market.name}. Ex. : {sample.title[:60]}"

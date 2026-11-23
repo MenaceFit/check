@@ -183,7 +183,8 @@ class SettingsScreen(ModalScreen[dict | None]):
                                  allow_blank=False, id="s-ipg")
                 with VerticalScroll(classes="col"):
                     yield Label("Source")
-                    yield Select([("Pages eBay (html)", "html"), ("API officielle (api)", "api")], value=g.backend,
+                    yield Select([("Automatique (API si clés)", "auto"), ("Pages eBay (html)", "html"),
+                                  ("API officielle (api)", "api")], value=g.backend,
                                  allow_blank=False, id="s-backend")
             with Horizontal(classes="row switch-row"):
                 yield Label("Tous les mots-clés dans le titre ")
@@ -201,7 +202,7 @@ class SettingsScreen(ModalScreen[dict | None]):
                 with VerticalScroll(classes="col"):
                     yield Label("Chat ID")
                     yield Input(value=n.telegram_chat_id, placeholder="123456789", id="s-tg-chat")
-            yield Static("API eBay officielle (seulement si Source = api)", classes="section")
+            yield Static("API eBay officielle (assistant complet : touche K)", classes="section")
             with Horizontal(classes="row"):
                 with VerticalScroll(classes="col"):
                     yield Label("Client ID (App ID)")
@@ -256,6 +257,96 @@ class SettingsScreen(ModalScreen[dict | None]):
     @on(Button.Pressed, "#save")
     def _save(self) -> None:
         self.action_save()
+
+    @on(Button.Pressed, "#cancel")
+    def _cancel(self) -> None:
+        self.action_cancel()
+
+
+API_GUIDE = """\
+Si eBay affiche « BLOQUÉ (403) », il refuse la lecture de ses pages par un programme.
+L'API officielle d'eBay est gratuite, prévue pour ça, et n'est jamais bloquée. 5 minutes, une seule fois :
+
+ 1. Va sur developer.ebay.com → « Join » (connexion avec ton compte eBay possible) ;
+    la validation du compte développeur peut prendre jusqu'à 1 jour ouvré.
+ 2. Menu « Application Keys » → donne un nom (ex. ebaywatch) → « Create a keyset » côté PRODUCTION.
+ 3. Si le keyset est marqué « disabled » : clique « Alerts & Notifications » → Production →
+    « Marketplace Account Deletion » → coche « Exempted… » → raison « I do not persist eBay data » → Submit.
+ 4. Copie ci-dessous l'App ID (Client ID, contient « -PRD- ») et le Cert ID (Client Secret).
+"""
+
+
+class ApiSetupScreen(ModalScreen[dict | None]):
+    """Guided setup of the official eBay API keys, with a live verification."""
+
+    BINDINGS = [("escape", "cancel", "Annuler"), ("ctrl+s", "save", "Enregistrer")]
+
+    def __init__(self, config: Config) -> None:
+        super().__init__()
+        self.config = config
+        self.verified = False
+
+    def compose(self) -> ComposeResult:
+        with VerticalScroll(id="api-form", classes="dialog form"):
+            yield Static("API officielle eBay", classes="dialog-title")
+            yield Static(API_GUIDE, id="api-guide")
+            yield Label("App ID (Client ID)")
+            yield Input(value=self.config.api.client_id, placeholder="TonNom-ebaywatc-PRD-xxxxxxxxx-xxxxxxxx",
+                        id="k-id")
+            yield Label("Cert ID (Client Secret)")
+            yield Input(value=self.config.api.client_secret, password=True, placeholder="PRD-xxxxxxxxxxxx-xxxx-…",
+                        id="k-secret")
+            yield Static("", id="api-status")
+            with Horizontal(classes="buttons"):
+                yield Button("Tester les clés", variant="primary", id="test")
+                yield Button("Enregistrer et utiliser l'API (Ctrl+S)", variant="success", id="save")
+                yield Button("Annuler (Échap)", id="cancel")
+
+    def _data(self) -> dict:
+        data = self.config.to_dict()
+        data["api"]["client_id"] = self.query_one("#k-id", Input).value.strip()
+        data["api"]["client_secret"] = self.query_one("#k-secret", Input).value.strip()
+        data["general"]["backend"] = "auto"
+        return data
+
+    def _status(self, text: str, ok: bool | None = None) -> None:
+        style = {True: "bold green", False: "bold red", None: "yellow"}[ok]
+        from rich.text import Text
+
+        self.query_one("#api-status", Static).update(Text(text, style=style))
+
+    async def _verify(self) -> bool:
+        from ..sources.api import verify_credentials
+
+        data = self._data()
+        if not data["api"]["client_id"] or not data["api"]["client_secret"]:
+            self._status("⚠ Renseigne l'App ID et le Cert ID.", False)
+            return False
+        try:
+            candidate = Config.from_dict(data)
+        except ConfigError as exc:
+            self._status(f"⚠ {exc}", False)
+            return False
+        self._status("Vérification auprès d'eBay…")
+        ok, message = await verify_credentials(candidate)
+        self._status(("✔ " if ok else "✘ ") + message, ok)
+        return ok
+
+    @on(Button.Pressed, "#test")
+    async def _test(self) -> None:
+        self.verified = await self._verify()
+
+    async def action_save(self) -> None:
+        if not await self._verify():
+            return
+        self.dismiss(self._data())
+
+    def action_cancel(self) -> None:
+        self.dismiss(None)
+
+    @on(Button.Pressed, "#save")
+    async def _save(self) -> None:
+        await self.action_save()
 
     @on(Button.Pressed, "#cancel")
     def _cancel(self) -> None:

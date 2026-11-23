@@ -30,7 +30,7 @@ _MARKETS: tuple[Market, ...] = (
     Market("it", "Italie", "www.ebay.it", "EUR", "it-IT,it;q=0.9,en;q=0.6", "EBAY_IT", "🇮🇹"),
     Market("es", "Espagne", "www.ebay.es", "EUR", "es-ES,es;q=0.9,en;q=0.6", "EBAY_ES", "🇪🇸"),
     Market("us", "États-Unis", "www.ebay.com", "USD", "en-US,en;q=0.9", "EBAY_US", "🇺🇸"),
-    Market("be", "Belgique (FR)", "www.befr.ebay.be", "EUR", "fr-BE,fr;q=0.9,en;q=0.6", "EBAY_FRBE", "🇧🇪"),
+    Market("be", "Belgique (FR)", "www.befr.ebay.be", "EUR", "fr-BE,fr;q=0.9,en;q=0.6", "EBAY_BE", "🇧🇪"),
     Market("nl", "Pays-Bas", "www.ebay.nl", "EUR", "nl-NL,nl;q=0.9,en;q=0.6", "EBAY_NL", "🇳🇱"),
     Market("at", "Autriche", "www.ebay.at", "EUR", "de-AT,de;q=0.9,en;q=0.6", "EBAY_AT", "🇦🇹"),
     Market("ch", "Suisse", "www.ebay.ch", "CHF", "de-CH,de;q=0.9,fr;q=0.8,en;q=0.6", "EBAY_CH", "🇨🇭"),

@@ -128,7 +128,7 @@ async def test_headless_run_detects_and_stops(cfg_path, fake_ebay, capsys):
     except asyncio.CancelledError:
         pass
     out = capsys.readouterr().out
-    assert "Surveillance démarrée : 3 cible(s)" in out
+    assert "Surveillance démarrée (pages eBay) : 3 cible(s)" in out
     assert "initialisation" in out
     assert "Nintendo Switch OLED neuve" in out and "200,00 €" in out
     assert "https://www.ebay.fr/itm/226000000009" in out

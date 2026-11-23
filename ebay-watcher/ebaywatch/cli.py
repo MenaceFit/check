@@ -5,6 +5,7 @@
     python -m ebaywatch search "ps5" -c fr uk   recherche ponctuelle, affiche les résultats
     python -m ebaywatch doctor          diagnostic complet (réseau, parsing, notifications)
     python -m ebaywatch test-notify     envoie une notification de test
+    python -m ebaywatch setup-api       configure l'API officielle eBay (si les pages sont bloquées)
     python -m ebaywatch init            crée config.toml à partir du modèle
 """
 
@@ -182,13 +183,20 @@ def cmd_search(args: argparse.Namespace) -> int:
 async def _doctor(config: Config, countries: list[str], keywords: str) -> int:
     ok = True
     console.rule("[bold]Diagnostic eBay Watcher")
-    console.print(f"Version {__version__} — Python {sys.version.split()[0]} — source : [bold]{config.general.backend}[/]")
+    backend = config.effective_backend
+    label = "API officielle eBay" if backend == "api" else "lecture des pages eBay (html)"
+    console.print(f"Version {__version__} — Python {sys.version.split()[0]} — source : [bold]{label}[/]")
     console.print(f"Configuration : {config.path}")
     console.print(f"Base de données : {config.database_path}")
     console.print(f"Recherches : {len(config.searches)} ({sum(s.enabled for s in config.searches)} actives)\n")
 
     probe = Search(name="doctor", keywords=keywords, countries=countries)
-    source = create_source(config)
+    blocked = False
+    try:
+        source = create_source(config)
+    except ValueError as exc:            # e.g. sandbox keys
+        console.print(f"[bold red]✘ {exc}[/]")
+        return 2
     table = Table(title=f"Test de recherche « {keywords} » (tri : plus récentes)")
     for col in ("Pays", "Résultat", "Annonces", "Temps", "Exemple (la plus récente)"):
         table.add_column(col, overflow="fold")
@@ -200,11 +208,14 @@ async def _doctor(config: Config, countries: list[str], keywords: str) -> int:
                 listings = await source.search(probe, market)
             except BlockedSourceError as exc:
                 ok = False
+                blocked = True
                 table.add_row(market.host, "[bold red]BLOQUÉ[/]", "-", f"{time.monotonic() - started:.1f}s", str(exc))
                 continue
             except SourceError as exc:
                 ok = False
                 table.add_row(market.host, "[red]ERREUR[/]", "-", f"{time.monotonic() - started:.1f}s", str(exc))
+                if "identifiants refusés" in str(exc):
+                    break                    # same keys for every country: no need to repeat
                 continue
             elapsed = f"{time.monotonic() - started:.1f}s"
             if not listings:
@@ -231,12 +242,15 @@ async def _doctor(config: Config, countries: list[str], keywords: str) -> int:
     console.print(f"  Telegram : {'configuré' if n.telegram_bot_token and n.telegram_chat_id else 'non configuré'}")
     console.print("  (python -m ebaywatch test-notify pour envoyer un message de test)\n")
     if ok:
-        console.print("[bold green]✔ Tout fonctionne. Lance l'interface : python -m ebaywatch[/]")
-    else:
+        console.print("[bold green]✔ Tout fonctionne. Lance l'interface : run.bat (ou ./run.sh)[/]")
+    elif blocked and backend == "html":
         console.print(
-            "[bold yellow]⚠ Au moins un pays a échoué.[/] Si c'est « BLOQUÉ » : attends 10-30 min, augmente "
-            "interval_seconds, évite les VPN/hébergeurs, ou passe sur backend = \"api\" (clés gratuites)."
+            "[bold red]eBay bloque la lecture de ses pages depuis ta connexion.[/]\n"
+            "Solution fiable et gratuite : l'API officielle eBay (jamais bloquée).\n"
+            "  → lance [bold]run.bat setup-api[/] (ou touche [bold]K[/] dans l'interface) et suis les étapes."
         )
+    else:
+        console.print("[bold yellow]⚠ Au moins un pays a échoué (voir le tableau ci-dessus).[/]")
     return 0 if ok else 2
 
 
@@ -269,6 +283,58 @@ async def _test_notify(config: Config) -> int:
 
 def cmd_test_notify(args: argparse.Namespace) -> int:
     return asyncio.run(_test_notify(load_config(args.config)))
+
+
+API_STEPS = """[bold]Configuration de l'API officielle eBay[/] (gratuite, 5 minutes, une seule fois)
+
+ 1. Va sur [link=https://developer.ebay.com]https://developer.ebay.com[/link] → « Join » (tu peux utiliser ton compte eBay).
+    La validation du compte développeur peut prendre jusqu'à 1 jour ouvré.
+ 2. Menu « Application Keys » → donne un nom (ex. ebaywatch) → « Create a keyset » côté [bold]PRODUCTION[/].
+ 3. Si le keyset est marqué « disabled » : « Alerts & Notifications » → Production →
+    « Marketplace Account Deletion » → coche « Exempted… » → raison « I do not persist eBay data » → Submit.
+ 4. Copie ici l'[bold]App ID[/] (Client ID, contient « -PRD- ») et le [bold]Cert ID[/] (Client Secret).
+"""
+
+
+async def _setup_api(config: Config, client_id: str, client_secret: str) -> int:
+    from .sources.api import verify_credentials
+
+    data = config.to_dict()
+    data["api"]["client_id"] = client_id.strip()
+    data["api"]["client_secret"] = client_secret.strip()
+    data["general"]["backend"] = "auto"
+    try:
+        candidate = Config.from_dict(data, config.path)
+    except ConfigError as exc:
+        console.print(f"[red]{exc}[/]")
+        return 1
+    console.print("Vérification auprès d'eBay…")
+    ok, message = await verify_credentials(candidate)
+    if not ok:
+        console.print(f"[bold red]✘ {message}[/]\nRien n'a été enregistré.")
+        return 2
+    candidate.save()
+    console.print(f"[bold green]✔ {message}[/]")
+    console.print(f"Clés enregistrées dans {candidate.path}. Le bot utilise maintenant l'API officielle eBay.\n"
+                  "Lance l'interface : [bold]run.bat[/] (ou ./run.sh)")
+    return 0
+
+
+def cmd_setup_api(args: argparse.Namespace) -> int:
+    config = load_config(args.config)
+    client_id, client_secret = args.client_id, args.client_secret
+    if not client_id or not client_secret:
+        console.print(API_STEPS)
+        try:
+            client_id = client_id or input("App ID (Client ID)     : ").strip()
+            client_secret = client_secret or input("Cert ID (Client Secret): ").strip()
+        except (EOFError, KeyboardInterrupt):
+            console.print("\nAnnulé.")
+            return 1
+    if not client_id or not client_secret:
+        console.print("[red]App ID et Cert ID sont obligatoires.[/]")
+        return 1
+    return asyncio.run(_setup_api(config, client_id, client_secret))
 
 
 def cmd_init(args: argparse.Namespace) -> int:
@@ -324,6 +390,11 @@ def build_parser() -> argparse.ArgumentParser:
 
     p = sub.add_parser("test-notify", help="envoie une notification de test")
     p.set_defaults(func=cmd_test_notify)
+
+    p = sub.add_parser("setup-api", help="configure les clés de l'API officielle eBay (recommandé)")
+    p.add_argument("--client-id", help="App ID (sinon demandé)")
+    p.add_argument("--client-secret", help="Cert ID (sinon demandé)")
+    p.set_defaults(func=cmd_setup_api)
 
     p = sub.add_parser("init", help="crée config.toml à partir du modèle")
     p.add_argument("--force", action="store_true")

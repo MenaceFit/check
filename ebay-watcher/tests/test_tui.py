@@ -228,3 +228,84 @@ async def test_no_search_message(tmp_path):
         await pilot.press("s")
         await settle(pilot)
         assert app.runtime is None
+
+
+# ------------------------------------------------------------ official API setup (key K)
+async def test_api_setup_screen_verifies_then_switches_to_api(tmp_path, fake_ebay, monkeypatch):
+    from ebaywatch.sources import api as api_mod
+    from ebaywatch.sources.api import ApiSource
+    from ebaywatch.tui.screens import ApiSetupScreen
+
+    from .conftest import api_item
+
+    real_verify = api_mod.verify_credentials
+    monkeypatch.setattr(api_mod, "verify_credentials",
+                        lambda config, client=None, api_root=None: real_verify(config, client, fake_ebay.base_url))
+    fake_ebay.api_items["EBAY_FR"] = [api_item("226000000001", "Nintendo Switch OLED")]
+    path = tmp_path / "config.toml"
+    path.write_text(template_text(), encoding="utf-8")
+    app = EbayWatchApp(Config.load(path), autostart=False,
+                       source_factory=lambda cfg: ApiSource(cfg, api_root=fake_ebay.base_url)
+                       if cfg.effective_backend == "api" else FakeSource())
+    async with app.run_test(size=(180, 60)) as pilot:
+        await pilot.press("k")
+        await settle(pilot)
+        screen = app.screen
+        assert isinstance(screen, ApiSetupScreen)
+        screen.query_one("#k-id", Input).value = "Me-ebaywatc-PRD-1-a"
+        screen.query_one("#k-secret", Input).value = "wrong"
+        await pilot.press("ctrl+s")
+        await settle(pilot, 6)
+        assert isinstance(app.screen, ApiSetupScreen)              # refused: stays open
+        assert "identifiants refusés" in str(screen.query_one("#api-status", Static).render())
+        assert Config.load(path).api.client_id == ""
+
+        screen.query_one("#k-secret", Input).value = "secret"
+        await pilot.press("ctrl+s")
+        for _ in range(20):
+            await settle(pilot)
+            if app.runtime is not None:
+                break
+        assert not isinstance(app.screen, ApiSetupScreen)
+        assert app.runtime is not None and app.runtime.source.name == "api"
+        assert "API officielle" in str(app.query_one("#status", Static).render())
+        for _ in range(40):                                        # baseline through the real HTTP API
+            await asyncio.sleep(0.05)
+            if any(t.state.value == "initialisé" for t in app.runtime.engine.targets):
+                break
+        assert any(t.state.value == "initialisé" for t in app.runtime.engine.targets)
+        await pilot.press("q")
+        await settle(pilot)
+    saved = Config.load(path)
+    assert saved.api.client_secret == "secret" and saved.effective_backend == "api"
+
+
+async def test_blocked_html_shows_api_hint(tmp_path):
+    from ebaywatch.sources.base import BlockedSourceError
+
+    path = tmp_path / "config.toml"
+    path.write_text(template_text(), encoding="utf-8")
+
+    def blocked_source(cfg):
+        src = FakeSource()
+        for code in ("fr", "uk", "de"):
+            src.pages[code] = BlockedSourceError("eBay a refusé la requête (403)")
+        return src
+
+    app = EbayWatchApp(Config.load(path), autostart=True, source_factory=blocked_source)
+    notes = []
+    app.notify = lambda message, **kw: notes.append((message, kw))
+    async with app.run_test(size=(180, 50)) as pilot:
+        for _ in range(100):                     # first checks are spread over ~4 s
+            await settle(pilot)
+            await asyncio.sleep(0.1)
+            if all(t.state.value == "bloqué" for t in app.runtime.engine.targets):
+                break
+        await settle(pilot, 4)
+        assert all(t.state.value == "bloqué" for t in app.runtime.engine.targets)
+        hints = [m for m, kw in notes if "Appuie sur K" in m]
+        assert len(hints) == 1                                     # shown once, not spammed
+        await pilot.press("3")                                     # Journal tab (rendered when visible)
+        await settle(pilot, 4)
+        log_text = "\n".join(str(line) for line in app.query_one("#log-view").lines)
+        assert "API officielle" in log_text

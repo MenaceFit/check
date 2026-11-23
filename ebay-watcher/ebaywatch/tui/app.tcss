@@ -131,3 +131,13 @@ ModalScreen {
 #confirm-dialog Button {
     width: 100%;
 }
+
+#api-guide {
+    color: $text-muted;
+    margin-bottom: 1;
+}
+
+#api-status {
+    height: auto;
+    margin-top: 1;
+}

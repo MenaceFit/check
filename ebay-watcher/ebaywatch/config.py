@@ -134,7 +134,7 @@ class Search:
 @dataclass(slots=True)
 class GeneralSettings:
     interval_seconds: int = 60
-    backend: str = "html"                 # "html" (scraping) or "api" (official Browse API)
+    backend: str = "auto"                 # "auto" (api if keys, else html), "html" or "api"
     results_per_page: int = 60
     max_concurrency: int = 3
     min_delay_per_host: float = 2.0       # politeness delay between two requests to one host
@@ -144,6 +144,7 @@ class GeneralSettings:
     # An unseen listing shown BELOW this many already-known listings is not new
     # (eBay sorts by newest first): it is a sponsored/promoted insertion. 0 = disabled.
     sponsored_guard: int = 3
+    api_daily_limit: int = 5000           # Browse API calls allowed per day (eBay default: 5000)
     database: str = "ebaywatch.db"
     user_agent: str = ""
 
@@ -169,8 +170,14 @@ class GeneralSettings:
             raise ConfigError("[general] sponsored_guard ne peut pas être négatif")
         s.database = str(data.get("database", s.database))
         s.user_agent = str(data.get("user_agent", "") or "")
-        if s.backend not in ("html", "api"):
-            raise ConfigError("[general] backend doit être « html » ou « api »")
+        if s.backend not in ("auto", "html", "api"):
+            raise ConfigError("[general] backend doit être « auto », « html » ou « api »")
+        try:
+            s.api_daily_limit = int(data.get("api_daily_limit", s.api_daily_limit))
+        except (TypeError, ValueError):
+            raise ConfigError("[general] api_daily_limit doit être un nombre entier") from None
+        if s.api_daily_limit < 100:
+            raise ConfigError("[general] api_daily_limit doit être ≥ 100")
         if s.interval_seconds < MIN_INTERVAL:
             raise ConfigError(f"[general] interval_seconds doit être ≥ {MIN_INTERVAL}")
         if s.results_per_page not in (60, 120, 240):
@@ -190,6 +197,7 @@ class GeneralSettings:
             "strict_title_match": self.strict_title_match,
             "notify_existing_on_start": self.notify_existing_on_start,
             "sponsored_guard": self.sponsored_guard,
+            "api_daily_limit": self.api_daily_limit,
             "database": self.database,
             "user_agent": self.user_agent,
         }
@@ -203,6 +211,11 @@ class ApiSettings:
     @property
     def configured(self) -> bool:
         return bool(self.client_id and self.client_secret)
+
+    @property
+    def is_sandbox(self) -> bool:
+        """Sandbox App IDs contain "-SBX-": they cannot read real listings."""
+        return "-SBX-" in self.client_id.upper()
 
 
 @dataclass(slots=True)
@@ -250,7 +263,8 @@ class Config:
             client_secret=str(api_data.get("client_secret", "") or os.environ.get("EBAY_CLIENT_SECRET", "")).strip(),
         )
         if general.backend == "api" and not api.configured:
-            raise ConfigError("backend = « api » mais [api] client_id / client_secret sont vides")
+            raise ConfigError("backend = « api » mais [api] client_id / client_secret sont vides "
+                              "(touche K dans l'interface ou commande setup-api)")
         notifications = NotificationSettings.from_dict(data.get("notifications", {}) or {})
         raw_searches = data.get("searches", []) or []
         if not isinstance(raw_searches, list):
@@ -319,6 +333,13 @@ class Config:
         if not src or not dst:
             return amount
         return amount * src / dst
+
+    @property
+    def effective_backend(self) -> str:
+        """Backend really used: "auto" picks the official API as soon as keys are configured."""
+        if self.general.backend == "auto":
+            return "api" if self.api.configured else "html"
+        return self.general.backend
 
     def get_search(self, name: str) -> Search | None:
         key = name.strip().casefold()

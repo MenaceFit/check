@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import math
 import random
 import time
 from collections.abc import Callable
@@ -116,6 +117,15 @@ class Engine:
         )
         self.semaphore = asyncio.Semaphore(config.general.max_concurrency)
         self.targets: list[Target] = self._build_targets(config)
+        self.quota_note = ""
+        if interval is None and getattr(source, "name", "") == "api" and self.targets:
+            # Stay under the daily quota of the official API (5 % safety margin).
+            budget = config.general.api_daily_limit * 0.95
+            min_interval = math.ceil(len(self.targets) * 86400 / budget)
+            if self.interval < min_interval:
+                self.quota_note = (f"intervalle porté à {min_interval} s pour rester sous le quota de "
+                                   f"{config.general.api_daily_limit} appels/jour de l'API ({len(self.targets)} cibles)")
+                self.interval = float(min_interval)
         self._filters = {s.key: ListingFilter(s, config) for s in config.searches}
         self._tasks: list[asyncio.Task] = []
         self.running = False
@@ -283,7 +293,11 @@ class Engine:
             initial = spread * index / max(1, len(self.targets))
             target.next_run = time.monotonic() + initial
             self._tasks.append(asyncio.create_task(self._run_target(target, initial), name=target.label))
-        self._log("info", f"Surveillance démarrée : {len(self.targets)} cible(s), intervalle {int(self.interval)} s")
+        source_label = "API officielle eBay" if getattr(self.source, "name", "") == "api" else "pages eBay"
+        self._log("info", f"Surveillance démarrée ({source_label}) : {len(self.targets)} cible(s), "
+                          f"intervalle {int(self.interval)} s")
+        if self.quota_note:
+            self._log("info", self.quota_note.capitalize())
 
     async def stop(self) -> None:
         if not self.running:

@@ -7,7 +7,7 @@ Autriche, Suisse, Irlande, Pologne, Canada, Australie).
 - Interface terminal complète : flux des annonces en direct, gestion des recherches, paramètres
 - Fichier `config.toml` lisible et modifiable à la main (mots-clés, pays, prix, mots exclus…)
 - Alertes **Discord** et **Telegram** (avec photo, prix, frais de port et lien), plus un bip sonore
-- Aucune clé requise (lecture des pages eBay), ou **API officielle eBay** en option
+- **API officielle eBay** (gratuite, jamais bloquée) avec assistant de configuration, ou lecture des pages sans clé
 - Pas de doublons : une annonce visible sur eBay FR et DE ne déclenche qu'une seule alerte
 - Mémoire persistante (SQLite) : un redémarrage ne renvoie pas les anciennes annonces
 
@@ -21,7 +21,8 @@ Prérequis : **Python 3.11 ou plus récent** ([python.org](https://www.python.or
 | macOS / Linux | `./run.sh` |
 
 Le premier lancement installe tout automatiquement dans `.venv/` et crée `config.toml`.
-**Commence par lancer le diagnostic**, qui teste en 10 secondes la connexion à chaque pays :
+**Commence par lancer le diagnostic**, qui teste en 10 secondes la connexion à chaque pays.
+S'il affiche **BLOQUÉ**, configure l'API officielle (voir plus bas, 5 minutes) : `run.bat setup-api`.
 
 ```bat
 run.bat doctor          (Windows)
@@ -42,7 +43,8 @@ run.bat           (ou ./run.sh)
 | `T` | activer / désactiver une recherche |
 | `D` | supprimer une recherche |
 | `O` / Entrée | ouvrir l'annonce sélectionnée dans le navigateur (onglet ①) |
-| `P` | paramètres : intervalle, Discord, Telegram, API… |
+| `P` | paramètres : intervalle, Discord, Telegram… |
+| `K` | clés de l'API officielle eBay (assistant + vérification) |
 | `R` | recharger `config.toml` après une modification à la main |
 | `1` `2` `3` | onglets Annonces / Recherches / Journal |
 | `Q` | quitter |
@@ -115,31 +117,42 @@ descendre sous 30 s n'apporte rien et augmente le risque de blocage. Le bot espa
 délai minimal par site, variation aléatoire de ±15 %, 3 requêtes simultanées au maximum. En cas d'erreur, il attend
 de plus en plus longtemps avant de réessayer (jusqu'à 30 min si eBay le bloque).
 
-### Si un pays affiche « BLOQUÉ »
+### Si `doctor` affiche « BLOQUÉ (403) » : utilise l'API officielle (5 minutes)
 
-eBay protège son site contre les robots (Akamai). Depuis une connexion internet classique (box), la lecture des
-pages fonctionne normalement à un rythme raisonnable. En revanche, les IP de **datacenters, VPS et VPN** sont
-souvent refusées (erreur 403). Dans ce cas :
+eBay protège ses pages avec un anti-robot (Akamai). Il bloque de plus en plus les programmes qui lisent ses pages,
+y compris depuis une connexion internet classique. Le bot ne contourne pas cette protection. La solution fiable
+est **l'API officielle d'eBay** : gratuite, prévue pour ça, et jamais bloquée.
 
-- lance le bot depuis ta connexion personnelle, sans VPN ;
-- augmente `interval_seconds` et réduis le nombre de pays ;
-- ou passe sur **l'API officielle** (voir ci-dessous) : c'est la solution la plus fiable.
+1. Va sur [developer.ebay.com](https://developer.ebay.com/) → **Join**. Tu peux te connecter avec ton compte eBay.
+   La validation du compte développeur peut prendre un peu de temps (jusqu'à 1 jour ouvré).
+2. Menu **Application Keys** → donne un nom à l'application (ex. `ebaywatch`) → **Create a keyset** dans la
+   colonne **Production** (pas Sandbox).
+3. Si le keyset Production est marqué *disabled* : **Alerts & Notifications** → Production →
+   **Marketplace Account Deletion** → coche **Exempted from Marketplace Account Deletion** → raison
+   **I do not persist eBay data** → Submit. Le bot ne stocke aucune donnée de compte eBay.
+4. Lance `run.bat setup-api` (ou touche **K** dans l'interface) et colle l'**App ID** (Client ID, contient
+   `-PRD-`) puis le **Cert ID** (Client Secret).
 
-### API officielle eBay (optionnel, recommandé sur serveur)
+Le bot vérifie aussitôt les clés auprès d'eBay en lançant une vraie recherche, et ne les enregistre que si elles
+fonctionnent. Avec `backend = "auto"` (le réglage par défaut), il utilise l'API dès que les clés sont présentes.
 
-1. Crée un compte gratuit sur [developer.ebay.com](https://developer.ebay.com/), puis va dans *Application Keys*
-   et crée un keyset **Production**.
-2. Copie l'**App ID** dans `client_id` et le **Cert ID** dans `client_secret`, section `[api]`.
-3. Mets `backend = "api"`, puis lance `run.bat doctor`.
+**Quota** : l'API autorise 5 000 appels par jour. Chaque recherche × pays coûte un appel par vérification, et le bot
+allonge automatiquement l'intervalle pour ne jamais dépasser le quota :
 
-L'API donne la date exacte de mise en ligne de chaque annonce, ne se fait jamais bloquer et autorise 5 000 appels
-par jour gratuitement. C'est assez pour environ 3 cibles toutes les 60 s, ou 6 cibles toutes les 2 min.
+| Recherches × pays | Intervalle minimal |
+|---|---|
+| 1 | 19 s |
+| 3 | 55 s |
+| 6 | 110 s |
+| 9 | 164 s |
+
+Pour plus de cibles en temps réel, eBay accorde des quotas plus élevés via son « Application Growth Check ».
 
 ## Développement
 
 ```bash
 python -m venv .venv && .venv/bin/pip install -r requirements-dev.txt
-.venv/bin/python -m pytest          # 146 tests, ~30 s
+.venv/bin/python -m pytest          # 160 tests, ~40 s
 ```
 
 | Module | Rôle |

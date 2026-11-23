@@ -7,7 +7,7 @@ from .html import HtmlSource
 
 
 def create_source(config: Config) -> Source:
-    if config.general.backend == "api":
+    if config.effective_backend == "api":
         return ApiSource(config)
     return HtmlSource(config)
 

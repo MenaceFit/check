@@ -70,6 +70,10 @@ class FakeEbay:
     requests: list[dict] = field(default_factory=list)
     discord_posts: list[dict] = field(default_factory=list)
     telegram_posts: list[dict] = field(default_factory=list)
+    api_items: dict[str, list[dict]] = field(default_factory=dict)   # marketplace id -> itemSummaries
+    api_requests: list[dict] = field(default_factory=list)
+    api_token_calls: int = 0
+    api_valid_secret: str = "secret"
     lock: threading.Lock = field(default_factory=threading.Lock)
     base_url: str = ""
 
@@ -95,6 +99,16 @@ def fake_ebay() -> Iterator[FakeEbay]:
 
         def do_GET(self) -> None:  # noqa: N802
             parsed = urlparse(self.path)
+            if parsed.path == "/buy/browse/v1/item_summary/search":
+                with state.lock:
+                    state.api_requests.append({"query": parse_qs(parsed.query), "headers": dict(self.headers)})
+                    if self.headers.get("Authorization") != "Bearer test-token":
+                        self._send(401, json.dumps({"errors": [{"message": "Invalid access token"}]}),
+                                   "application/json")
+                        return
+                    items = state.api_items.get(self.headers.get("X-EBAY-C-MARKETPLACE-ID", ""), [])
+                self._send(200, json.dumps({"total": len(items), "itemSummaries": items}), "application/json")
+                return
             parts = parsed.path.strip("/").split("/")
             market = parts[0] if parts else ""
             with state.lock:
@@ -108,7 +122,22 @@ def fake_ebay() -> Iterator[FakeEbay]:
 
         def do_POST(self) -> None:  # noqa: N802
             length = int(self.headers.get("Content-Length", 0))
-            payload = json.loads(self.rfile.read(length) or b"{}")
+            raw = self.rfile.read(length) or b"{}"
+            if self.path == "/identity/v1/oauth2/token":
+                import base64
+
+                creds = base64.b64decode(self.headers.get("Authorization", "Basic ")[6:]).decode()
+                with state.lock:
+                    state.api_token_calls += 1
+                if creds.endswith(":" + state.api_valid_secret) and b"client_credentials" in raw:
+                    self._send(200, json.dumps({"access_token": "test-token", "expires_in": 7200}),
+                               "application/json")
+                else:
+                    self._send(401, json.dumps({"error": "invalid_client",
+                                                "error_description": "client authentication failed"}),
+                               "application/json")
+                return
+            payload = json.loads(raw)
             with state.lock:
                 if self.path.startswith("/discord"):
                     state.discord_posts.append(payload)
@@ -129,3 +158,17 @@ def fake_ebay() -> Iterator[FakeEbay]:
     finally:
         server.shutdown()
         server.server_close()
+
+
+def api_item(item_id: str, title: str, price: str = "150.00", currency: str = "EUR", **extra) -> dict:
+    """An itemSummaries entry shaped like the real Browse API response."""
+    return {
+        "itemId": f"v1|{item_id}|0", "legacyItemId": item_id, "title": title,
+        "price": {"value": price, "currency": currency},
+        "image": {"imageUrl": f"https://i.ebayimg.com/images/g/{item_id}/s-l225.jpg"},
+        "itemWebUrl": f"https://www.ebay.fr/itm/{item_id}?tracking=1",
+        "buyingOptions": ["FIXED_PRICE"], "condition": "Occasion",
+        "itemCreationDate": "2026-11-23T10:00:00.000Z",
+        "shippingOptions": [{"shippingCost": {"value": "5.00", "currency": currency}}],
+        **extra,
+    }

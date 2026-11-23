@@ -10,9 +10,14 @@
 # 45-90 s est un bon compromis : eBay indexe les nouvelles annonces en ~1 min.
 interval_seconds = 60
 
-# « html » = lecture des pages de recherche eBay (aucune clé nécessaire)
-# « api »  = API officielle eBay Browse (gratuite, plus fiable, voir [api])
-backend = "html"
+# « auto » = API officielle si les clés [api] sont renseignées, sinon lecture des pages (recommandé)
+# « html » = lecture des pages de recherche eBay (aucune clé, mais eBay bloque souvent : erreur 403)
+# « api »  = API officielle eBay Browse (gratuite, jamais bloquée) → commande « setup-api » ou touche K
+backend = "auto"
+
+# Quota quotidien de l'API officielle (5000 appels/jour par défaut chez eBay).
+# L'intervalle est automatiquement allongé pour ne jamais le dépasser.
+api_daily_limit = 5000
 
 # Nombre d'annonces lues par page (60, 120 ou 240). 60 suffit pour du temps réel.
 results_per_page = 60
@@ -41,8 +46,8 @@ database = "ebaywatch.db"
 user_agent = ""
 
 [api]
-# Uniquement si backend = "api". Clés gratuites sur https://developer.ebay.com
-# (Application Keys > Production > App ID = client_id, Cert ID = client_secret).
+# Clés gratuites sur https://developer.ebay.com — le plus simple : commande « setup-api » ou touche K.
+# (Application Keys > keyset PRODUCTION : App ID = client_id, Cert ID = client_secret).
 # Peut aussi venir des variables d'environnement EBAY_CLIENT_ID / EBAY_CLIENT_SECRET.
 client_id = ""
 client_secret = ""

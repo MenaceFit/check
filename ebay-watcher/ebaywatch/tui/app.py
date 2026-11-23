@@ -21,7 +21,7 @@ from ..models import Listing
 from ..notifiers import build_notifiers
 from ..runtime import Runtime, build_runtime
 from ..store import Store
-from .screens import ConfirmScreen, SearchFormScreen, SettingsScreen
+from .screens import ApiSetupScreen, ConfirmScreen, SearchFormScreen, SettingsScreen
 
 FEED_LIMIT = 500
 
@@ -55,6 +55,7 @@ class EbayWatchApp(App[None]):
         Binding("t", "toggle_search", "Activer/Désact."),
         Binding("o", "open_listing", "Ouvrir annonce"),
         Binding("p", "settings", "Paramètres"),
+        Binding("k", "api_setup", "Clés API"),
         Binding("r", "reload", "Recharger fichier"),
         Binding("n", "test_notifications", "Tester notifs", show=False),
         Binding("1", "show_tab('feed')", "Annonces", show=False),
@@ -74,6 +75,7 @@ class EbayWatchApp(App[None]):
         self.feed: deque[Listing] = deque(maxlen=FEED_LIMIT)
         self.targets: dict[tuple[str, str], Target] = {}
         self.session_new = 0
+        self._block_hint_shown = False
 
     # ------------------------------------------------------------------ layout
     def compose(self) -> ComposeResult:
@@ -129,7 +131,7 @@ class EbayWatchApp(App[None]):
 
     _MAIN_SCREEN_ONLY = {
         "toggle_engine", "add_search", "edit_search", "delete_search", "toggle_search", "open_listing",
-        "settings", "reload", "test_notifications", "show_tab", "quit",
+        "settings", "reload", "test_notifications", "show_tab", "quit", "api_setup",
     }
 
     def check_action(self, action: str, parameters: tuple[object, ...]) -> bool | None:
@@ -154,8 +156,9 @@ class EbayWatchApp(App[None]):
             Text(f"   {len(self.targets)} cibles"),
             Text(f"   {engine.requests if engine else 0} requêtes"),
             Text(f"   {self.session_new} nouvelles", style="bold"),
-            Text(f"   source : {self.config.general.backend}"),
-            Text(f"   toutes les {self.config.general.interval_seconds} s"),
+            Text("   source : API officielle" if self.config.effective_backend == "api" else "   source : pages eBay",
+                 style="green" if self.config.effective_backend == "api" else ""),
+            Text(f"   toutes les {int(engine.interval) if engine else self.config.general.interval_seconds} s"),
             Text("   Discord ✓" if n.discord_webhook_url else "   Discord ✗",
                  style="green" if n.discord_webhook_url else "dim"),
             Text("   Telegram ✓" if n.telegram_bot_token and n.telegram_chat_id else "   Telegram ✗",
@@ -266,6 +269,13 @@ class EbayWatchApp(App[None]):
                 self.bell()
         elif isinstance(event, TargetUpdated):
             self._refresh_targets()
+            if (event.target.state is TargetState.BLOCKED and self.config.effective_backend == "html"
+                    and not self._block_hint_shown):
+                self._block_hint_shown = True
+                message = ("eBay bloque la lecture de ses pages depuis ta connexion (403).\n"
+                           "Solution fiable : l'API officielle eBay, gratuite. Appuie sur K pour la configurer.")
+                self.notify(message, title="eBay bloque les requêtes", severity="error", timeout=60, markup=False)
+                self._log("error", message.replace("\n", " "))
         elif isinstance(event, LogEvent):
             self._log(event.level, event.message)
 
@@ -378,6 +388,20 @@ class EbayWatchApp(App[None]):
         self._save_config()
         self.notify("Paramètres enregistrés")
         await self._restart_if_running()
+        self._refresh_status()
+
+    @work(exclusive=True, group="dialog")
+    async def action_api_setup(self) -> None:
+        data = await self.push_screen_wait(ApiSetupScreen(self.config))
+        if data is None:
+            return
+        self.config = Config.from_dict(data, self.config.path)
+        self._save_config()
+        self._block_hint_shown = False
+        self.notify("Clés API enregistrées : le bot utilise maintenant l'API officielle eBay.")
+        await self._restart_if_running()
+        if self.runtime is None and any(s.enabled for s in self.config.searches):
+            await self._start_engine()
         self._refresh_status()
 
     async def action_reload(self) -> None:
